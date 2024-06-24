@@ -201,8 +201,11 @@ class JobPrint(threading.Thread):
         self.startsec = time()
         self.stdscr = None
         self.paused = False
-        home = os.environ["HOME"]
-        self.pdirlog = sub(f"^{home}/", "~/", self.dirlog)
+        home = os.environ.get("HOME")
+        if home:
+            self.pdirlog = sub(rf"^{home}/", "~/", self.dirlog)
+        else:
+            self.pdirlog = self.dirlog
         if sys.stdout.isatty():
             self.init_curses()
         super().__init__()
@@ -547,12 +550,15 @@ def main():
     if args.job:
         dirlog += f"/{args.job}"
     dirlog += "/" + str(int(time()))
+    if not os.path.isdir(dirlog):
+        os.makedirs(dirlog)
     latest = f"{args.dirlog}/latest"
     if os.path.exists(latest):
         os.unlink(latest)
-    os.symlink(dirlog, latest)
-    if not os.path.isdir(dirlog):
-        os.makedirs(dirlog)
+    try:
+        os.symlink(dirlog, latest)
+    except OSError:
+        pass
     hosts = []
     with open(args.hostsfile, "r", encoding="UTF-8") as fhosts:
         for i in fhosts.readlines():

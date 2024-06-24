@@ -8,7 +8,11 @@ maintainers = [
 ]
 
 description = "Interactive Parallel SSH jobs manager"
-dependencies = ["colorama","dataclasses>=0.6; python_version < '3.7'"]
+dependencies = [
+  "colorama",
+  "dataclasses>=0.6; python_version < '3.7'",
+  "windows-curses>=2.3.3; platform_system == 'Windows'",
+]
 dynamic=["version"]
 readme = "README.md"
 license = {file = "LICENSE"}
