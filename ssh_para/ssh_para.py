@@ -301,7 +301,6 @@ class JobPrint(threading.Thread):
             curses.curs_set(1)
         self.print_summary(total_dur)
 
-
     def print_status(self, status, duration=0, avgjobdur=0):
         """print thread status"""
         color = self.status_color[status]
@@ -319,10 +318,11 @@ class JobPrint(threading.Thread):
         addstr(self.stdscr, f" {tdelta(seconds=round(duration))}")
 
     def check_timeout(self, th_id, duration):
+        """kill ssh if duration exceeds timeout"""
         if not self.timeout:
             return
         if duration > self.timeout:
-            self.kill("TIMEOUT", th_id)  
+            self.kill("TIMEOUT", th_id)
 
     def check_timeouts(self):
         """check threads timemout"""
