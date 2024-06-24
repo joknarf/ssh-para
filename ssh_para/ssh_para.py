@@ -53,7 +53,7 @@ def parse_args():
     parser.add_argument("-s", "--script", help="script to execute")
     parser.add_argument("-a", "--args", nargs="+", help="script arguments")
     parser.add_argument("-t", "--timeout", type=int, help="timeout of each job")
-    parser.add_argument("command", nargs="*")
+    parser.add_argument("ssh_args", nargs="*")
     return parser.parse_args()
 
 
@@ -654,15 +654,15 @@ def main():
     except OSError:
         pass
     if args.script:
-        args.command.append(script_command(args.script, args.args))
+        args.ssh_args.append(script_command(args.script, args.args))
         command = [args.script]
         if args.args:
             command += args.args
     else:
-        command = args.command
+        command = args.ssh_args
     hosts = get_hosts(args.hostsfile, args.hosts)
     for host in hosts:
-        jobq.put(Job(host=host, command=args.command))
+        jobq.put(Job(host=host, command=args.ssh_args))
     parallel = min(len(hosts), args.parallel)
     p = JobPrint(command, parallel, len(hosts), dirlog, args.timeout)
     p.start()
