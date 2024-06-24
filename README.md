@@ -1,5 +1,6 @@
 # ssh-para
 Parallel SSH jobs manager CLI (alternative to parallel-ssh)
+* POSIX/Linux/MacOS/Windows compatible (with openssh client installed)
 * Launch parallel ssh jobs/scripts on remote hosts, with interactive display of the running commands outputs
 * Keep all output in log files
 * Interactive pause/resume/abort jobs, kill stuck ssh connection interactively.
