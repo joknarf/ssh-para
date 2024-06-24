@@ -16,7 +16,7 @@ from subprocess import Popen
 from argparse import ArgumentParser
 from dataclasses import dataclass
 import curses
-from colorama import Fore, init
+from colorama import Fore, Style, init
 
 os.environ["TERM"] = "xterm-256color"
 
@@ -477,16 +477,16 @@ class JobPrint(threading.Thread):
         """print/log summary of jobs"""
         global_log = open(f"{self.dirlog}/ssh-para.log", "w", encoding="UTF-8")
         if self.aborted:
-            print_tee("Cancelled hosts:", file=global_log, color=Fore.RED)
+            print_tee("Cancelled hosts:", file=global_log, color=Style.BRIGHT+Fore.RED)
             for host in self.aborted:
                 print_tee(host, file=global_log)
                 self.nbjobs -= 1
         print_tee("", file=global_log)
         for jstatus in self.job_status:
             if jstatus.exit != 0:
-                color = Fore.RED
+                color = Style.BRIGHT+Fore.RED
             else:
-                color = Fore.GREEN
+                color = Style.BRIGHT+Fore.GREEN
             print_tee(
                 f"{jstatus.status}: {jstatus.host}",
                 f"exit: {jstatus.exit}",
@@ -511,7 +511,7 @@ class JobPrint(threading.Thread):
                 self.nbfailed,
                 "Job(s) with exit code != 0",
                 file=global_log,
-                color=Fore.RED,
+                color=Style.BRIGHT+Fore.RED,
             )
         global_log.close()
 
