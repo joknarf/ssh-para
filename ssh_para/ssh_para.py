@@ -52,6 +52,7 @@ def parse_args():
     host_group.add_argument("-H", "--hosts", help="hosts list", nargs="+")
     parser.add_argument("-s", "--script", help="script to execute")
     parser.add_argument("-a", "--args", nargs="+", help="script arguments")
+    parser.add_argument("-t", "--timeout", type=int, help="timeout of each job")
     parser.add_argument("command", nargs="*")
     return parser.parse_args()
 
@@ -191,11 +192,13 @@ class JobPrint(threading.Thread):
         "SUCCESS": 102,
         "FAILED": 104,
         "ABORTED": 104,
+        "KILLED": 104,
+        "TIMEOUT": 104,
         "IDLE": 106,
     }
     COLOR_GAUGE = 108
 
-    def __init__(self, command, nbthreads, nbjobs, dirlog):
+    def __init__(self, command, nbthreads, nbjobs, dirlog, timeout=0):
         """init properties / thread"""
         super().__init__()
         self.th_status = [JobStatus() for i in range(nbthreads)]
@@ -209,6 +212,7 @@ class JobPrint(threading.Thread):
         self.startsec = time()
         self.stdscr = None
         self.paused = False
+        self.timeout = timeout
         home = os.path.expanduser("~/")
         self.pdirlog = sub(rf"^{escape(home)}", "~/", self.dirlog)
         if sys.stdout.isatty():
@@ -284,6 +288,8 @@ class JobPrint(threading.Thread):
             total_dur = tdelta(seconds=round(time() - self.startsec))
             if self.stdscr:
                 self.display_curses(th_id, total_dur, jobsdur, nbsshjobs)
+            else:
+                self.check_timeouts()
             if len(self.job_status) == self.nbjobs:
                 break
 
@@ -294,6 +300,7 @@ class JobPrint(threading.Thread):
             curses.echo()
             curses.curs_set(1)
         self.print_summary(total_dur)
+
 
     def print_status(self, status, duration=0, avgjobdur=0):
         """print thread status"""
@@ -311,6 +318,19 @@ class JobPrint(threading.Thread):
         addstr(self.stdscr, SYMBOL_END, curses.color_pair(color + 1))
         addstr(self.stdscr, f" {tdelta(seconds=round(duration))}")
 
+    def check_timeout(self, th_id, duration):
+        if not self.timeout:
+            return
+        if duration > self.timeout:
+            self.kill("TIMEOUT", th_id)  
+
+    def check_timeouts(self):
+        """check threads timemout"""
+        for i, jstatus in enumerate(self.th_status):
+            if jstatus.status == "RUNNING":
+                duration = time() - jstatus.start
+                self.check_timeout(i, duration)
+
     def display_curses(self, status_id, total_dur, jobsdur, nbsshjobs):
         """display threads statuses"""
         nbend = endq.qsize()
@@ -326,6 +346,7 @@ class JobPrint(threading.Thread):
                 jstatus.log = last_line(jstatus.fdlog)
             if jstatus.status == "RUNNING":
                 duration = time() - jstatus.start
+                self.check_timeout(i, duration)
                 last_start = max(last_start, jstatus.start)
             else:
                 duration = jstatus.duration
@@ -386,16 +407,19 @@ class JobPrint(threading.Thread):
         if ch == 114 and self.paused:  # r resume
             self.resume()
 
-    def kill(self):
+    def kill(self, status="KILLED", th_kill=None):
         """interactive kill pid of ssh thread"""
-        curses.echo()
-        addstrc(self.stdscr, curses.LINES - 1, 0, "kill job in thread: ")
-        th_kill = int(self.stdscr.getstr())
+        if not th_kill:
+            curses.echo()
+            addstrc(self.stdscr, curses.LINES - 1, 0, "kill job in thread: ")
+            th_kill = int(self.stdscr.getstr())
+            curses.noecho()
         try:
             os.kill(self.th_status[th_kill].pid, 15)
+            sleep(0.1)
+            self.th_status[th_kill].status = status
         except ProcessLookupError:
             pass
-        curses.noecho()
 
     def pause(self):
         """pause JobRun threads"""
@@ -418,7 +442,7 @@ class JobPrint(threading.Thread):
             if curses.LINES < 6 + self.nbthreads * 2 + i * 2:
                 break
             addstr(self.stdscr, 5 + self.nbthreads * 2 + i * 2, 0, "")
-            self.print_status(jstatus.status)
+            self.print_status(jstatus.status, jstatus.duration)
             addstrc(
                 self.stdscr,
                 f" exit:{str(jstatus.exit):>3} {jstatus.host}",
@@ -634,7 +658,7 @@ def main():
     for host in hosts:
         jobq.put(Job(host=host, command=args.command))
     parallel = min(len(hosts), args.parallel)
-    p = JobPrint(command, parallel, len(hosts), dirlog)
+    p = JobPrint(command, parallel, len(hosts), dirlog, args.timeout)
     p.start()
     for i in range(parallel):
         t = JobRun(i, dirlog=dirlog)
