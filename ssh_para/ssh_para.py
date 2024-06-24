@@ -21,7 +21,7 @@ os.environ["TERM"] = "xterm-256color"
 
 SYMBOL_END = os.environ.get("SSHP_SYM_BEG") or "\ue0b4"
 SYMBOL_BEGIN = os.environ.get("SSHP_SYM_END") or "\ue0b6"
-
+SYMBOL_PROG = os.environ.get("SSH_SYM_PROG") or "■"
 
 jobq = queue.Queue()
 runq = queue.Queue()
@@ -298,7 +298,7 @@ class JobPrint(threading.Thread):
             pten = min(int(round(duration / avgjobdur * 10, 0)), 10)
             addstr(
                 self.stdscr,
-                "■" * pten + " " * (10 - pten),
+                SYMBOL_PROG * pten + " " * (10 - pten),
                 curses.color_pair(self.COLOR_GAUGE),
             )  # ▶
         else:
