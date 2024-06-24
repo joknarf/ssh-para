@@ -70,7 +70,7 @@ def addstr(stdscr, *args, **kwargs):
     """curses addstr w/o exception"""
     try:
         stdscr.addstr(*args, **kwargs)
-    except curses.error:
+    except (curses.error, ValueError):
         pass
 
 
@@ -260,7 +260,7 @@ class JobPrint(threading.Thread):
         nbsshjobs = 0
         while True:
             try:
-                jstatus: JobStatus = printq.get(timeout=1)
+                jstatus: JobStatus = printq.get(timeout=0.1)
             except queue.Empty:
                 jstatus = None
             th_id = None
