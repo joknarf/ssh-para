@@ -409,11 +409,15 @@ class JobPrint(threading.Thread):
 
     def kill(self, status="KILLED", th_kill=None):
         """interactive kill pid of ssh thread"""
-        if not th_kill:
+        if th_kill is None:
             curses.echo()
             addstrc(self.stdscr, curses.LINES - 1, 0, "kill job in thread: ")
-            th_kill = int(self.stdscr.getstr())
-            curses.noecho()
+            try:
+                th_kill = int(self.stdscr.getstr())
+            except ValueError:
+                return
+            finally:
+                curses.noecho()
         try:
             os.kill(self.th_status[th_kill].pid, 15)
             sleep(0.1)
