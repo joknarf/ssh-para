@@ -629,10 +629,13 @@ def get_hosts(hostsfile, hosts):
     """returns hosts list from args host or reading hostfile"""
     if hosts:
         return hosts
+    if not hostsfile:
+        print(f"ERROR:ssh-para:No hosts definition", file=sys.stderr)
+        sys.exit(1)
     try:
         with open(hostsfile, "r", encoding="UTF-8") as fhosts:
             hosts = fhosts.read().splitlines()
-    except OSError:
+    except (OSError):
         print(f"ERROR:ssh-para: Cannot open {hostsfile}", file=sys.stderr)
         sys.exit(1)
     return hosts
@@ -663,6 +666,9 @@ def main():
     else:
         command = args.ssh_args
     hosts = get_hosts(args.hostsfile, args.hosts)
+    if not args.ssh_args:
+        print("ERROR:ssh-para: No ssh command supplied", file=sys.stderr)
+        sys.exit(1)
     for host in hosts:
         jobq.put(Job(host=host, command=args.ssh_args))
     parallel = min(len(hosts), args.parallel)
