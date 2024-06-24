@@ -1,3 +1,5 @@
+[![Pypi version](https://img.shields.io/pypi/v/ssh-para.svg)](https://pypi.org/project/ssh-para/)
+
 # ssh-para
 Parallel SSH jobs manager CLI (alternative to parallel-ssh)
 * POSIX/Linux/MacOS/Windows compatible (with openssh client installed)
