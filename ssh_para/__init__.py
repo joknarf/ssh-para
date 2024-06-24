@@ -1,2 +1,3 @@
 """ package ssh-para """
-__author__="Franck Jouvanceau"
+
+__author__ = "Franck Jouvanceau"

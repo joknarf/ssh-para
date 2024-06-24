@@ -47,7 +47,8 @@ def parse_args():
     return parser.parse_args()
 
 
-def sigint_handler(sig, frame):
+def sigint_handler(*args):
+    """exit all threads if signal"""
     try:
         curses.endwin()
     except curses.error:
@@ -56,6 +57,7 @@ def sigint_handler(sig, frame):
 
 
 def addstr(stdscr, *args, **kwargs):
+    """curses addstr w/o exception"""
     try:
         stdscr.addstr(*args, **kwargs)
     except curses.error:
@@ -63,11 +65,13 @@ def addstr(stdscr, *args, **kwargs):
 
 
 def addstrc(stdscr, *args, **kwargs):
+    """curses addstr and clear eol"""
     addstr(stdscr, *args, **kwargs)
     stdscr.clrtoeol()
 
 
 def emptyq(q):
+    """get all queue elements"""
     while True:
         try:
             q.get(block=False)
@@ -76,7 +80,8 @@ def emptyq(q):
 
 
 def fillq(q, nb, value=True):
-    for i in range(nb):
+    """fill queue with nb value"""
+    for _ in range(nb):
         q.put(value)
 
 
@@ -92,6 +97,7 @@ def print_tee(*args, file, color=""):
 
 
 def last_line(fd):
+    """last non empty line of file"""
     line = "\n"
     fd.seek(0, os.SEEK_END)
     while line == "\n":
@@ -108,6 +114,8 @@ def last_line(fd):
 
 
 class Segment:
+    """display of colored powerline style"""
+
     def __init__(
         self,
         stdscr,
@@ -119,6 +127,7 @@ class Segment:
         symbol="\ue0b4",
         symbol1="\ue0b6",
     ):
+        """curses inits"""
         self.stdscr = stdscr
         self.segments = []
         self.nbsegments = nbsegments
@@ -143,24 +152,18 @@ class Segment:
             curses.init_pair(i * 2 + 3, bg[i], bg[i + 1])
 
     def set_segments(self, x, y, segments):
+        """display powerline"""
         addstr(self.stdscr, y, x, self.symbol1, curses.color_pair(1))
         for i, segment in enumerate(segments):
             addstr(self.stdscr, f" {segment} ", curses.color_pair(i * 2 + 2))
             addstr(self.stdscr, self.symbol, curses.color_pair(i * 2 + 3))
         self.stdscr.clrtoeol()
 
-    def set_gauge(self, pct=0, x=None, y=None):
-        addstr(self.stdscr, self.symbol1, curses.color_pair(1))
-        addstr(
-            self.stdscr,
-            "=" * int(round(pct / 10, 0)) + " " * int(round((100 - pct) / 10, 0)),
-            curses.color_pair(2),
-        )
-        addstr(self.stdscr, self.symbol, curses.color_pair(1))
-
 
 @dataclass
 class JobStatus:
+    """handle job statuses"""
+
     status: str = "IDLE"
     start: str = ""
     host: str = ""
@@ -175,8 +178,7 @@ class JobStatus:
 
 class JobPrint(threading.Thread):
     """
-    Thread used to have clean paraqueue output to stderr (Threads status)
-    reads and prints Queue print content
+    Thread to display jobs statuses of JobRun threads
     """
 
     status_color = {
@@ -189,6 +191,7 @@ class JobPrint(threading.Thread):
     COLOR_GAUGE = 108
 
     def __init__(self, command, nbthreads, nbjobs, dirlog):
+        """init properties / thread"""
         super().__init__()
         self.th_status = [JobStatus() for i in range(nbthreads)]
         self.command = " ".join(command)
@@ -209,8 +212,9 @@ class JobPrint(threading.Thread):
         if sys.stdout.isatty():
             self.init_curses()
         super().__init__()
-    
+
     def init_curses(self):
+        """curses window init"""
         signal.signal(signal.SIGINT, sigint_handler)
         self.stdscr = curses.initscr()
         curses.noecho()
@@ -240,6 +244,7 @@ class JobPrint(threading.Thread):
         curses.init_pair(self.COLOR_GAUGE, 8, curses.COLOR_BLUE)
 
     def join(self, *args):
+        """returns nb failed"""
         super().join(*args)
         return self.nbfailed > 0
 
@@ -271,7 +276,9 @@ class JobPrint(threading.Thread):
                 th_id = jstatus.thread_id
                 self.th_status[th_id] = jstatus
                 if not self.stdscr:
-                    print(f"{strftime('%X')}: {jstatus.status} {int(runq.qsize())}: {jstatus.host}")
+                    print(
+                        f"{strftime('%X')}: {jstatus.status} {int(runq.qsize())}: {jstatus.host}"
+                    )
             total_dur = tdelta(seconds=round(time() - self.startsec))
             if self.stdscr:
                 self.display_curses(th_id, total_dur, jobsdur, nbsshjobs)
@@ -287,6 +294,7 @@ class JobPrint(threading.Thread):
         self.print_summary(total_dur)
 
     def print_status(self, status, duration=0, avgjobdur=0):
+        """print thread status"""
         color = self.status_color[status]
         addstr(self.stdscr, "\ue0b6", curses.color_pair(color + 1))
         if status == "RUNNING" and avgjobdur:
@@ -298,9 +306,10 @@ class JobPrint(threading.Thread):
             )  # ▶
         else:
             addstr(self.stdscr, f" {status:8} ", curses.color_pair(color))
-        addstr(self.stdscr, "\ue0b4 ", curses.color_pair(color + 1))        
+        addstr(self.stdscr, "\ue0b4 ", curses.color_pair(color + 1))
 
     def display_curses(self, status_id, total_dur, jobsdur, nbsshjobs):
+        """display threads statuses"""
         nbend = endq.qsize()
         nbrun = runq.qsize() - nbend
         last_start = 0
@@ -314,8 +323,7 @@ class JobPrint(threading.Thread):
                 jstatus.log = last_line(jstatus.fdlog)
             if jstatus.status == "RUNNING":
                 duration = time() - jstatus.start
-                if jstatus.start > last_start:
-                    last_start = jstatus.start
+                last_start = max(last_start, jstatus.start)
             else:
                 duration = jstatus.duration
             if curses.LINES > i * 2 + 5:
@@ -355,12 +363,13 @@ class JobPrint(threading.Thread):
         addstrc(self.stdscr, 2, 0, "")
         self.print_finished()
         if self.paused:
-            addstrc(self.stdscr, curses.LINES - 1, 0, f"[a]bort [k]ill [r]esume")
+            addstrc(self.stdscr, curses.LINES - 1, 0, "[a]bort [k]ill [r]esume")
         else:
-            addstrc(self.stdscr, curses.LINES - 1, 0, f"[a]bort [k]ill [p]ause")
+            addstrc(self.stdscr, curses.LINES - 1, 0, "[a]bort [k]ill [p]ause")
         self.stdscr.refresh()
 
     def get_key(self):
+        """manage interactive actions"""
         self.stdscr.nodelay(True)
         ch = self.stdscr.getch()
         self.stdscr.nodelay(False)
@@ -369,35 +378,38 @@ class JobPrint(threading.Thread):
             self.abort_jobs()
         if ch == 107:  # k kill
             self.kill()
-        if ch == 112 and not self.paused: # p pause
+        if ch == 112 and not self.paused:  # p pause
             self.pause()
-        if ch == 114 and self.paused: # r resume
+        if ch == 114 and self.paused:  # r resume
             self.resume()
 
     def kill(self):
+        """interactive kill pid of ssh thread"""
         curses.echo()
         addstrc(self.stdscr, curses.LINES - 1, 0, "kill job in thread: ")
+        th_kill = int(self.stdscr.getstr())
         try:
-            th_kill = int(self.stdscr.getstr())
             os.kill(self.th_status[th_kill].pid, 15)
-        except:
+        except ProcessLookupError:
             pass
         curses.noecho()
 
     def pause(self):
+        """pause JobRun threads"""
         if not self.paused:
             emptyq(resumeq)
             fillq(pauseq, self.nbthreads)
             self.paused = True
 
     def resume(self):
+        """resume JobRun threads"""
         if self.paused:
             emptyq(pauseq)
             fillq(resumeq, self.nbthreads)
             self.paused = False
 
-
     def print_finished(self):
+        """display finished jobs"""
         addstr(self.stdscr, curses.LINES - 1, 0, "")
         for i, jstatus in enumerate(self.job_status[::-1]):
             if curses.LINES < 6 + self.nbthreads * 2 + i * 2:
@@ -414,6 +426,7 @@ class JobPrint(threading.Thread):
         self.stdscr.clrtobot()
 
     def abort_jobs(self):
+        """aborts remaining jobs"""
         addstrc(self.stdscr, curses.LINES - 1, 0, "Cancel remaining jobs...")
         self.stdscr.refresh()
         while True:
@@ -430,6 +443,7 @@ class JobPrint(threading.Thread):
         self.resume()
 
     def print_summary(self, total_dur):
+        """print/log summary of jobs"""
         global_log = open(f"{self.dirlog}/ssh-para.log", "w", encoding="UTF-8")
         if self.aborted:
             print_tee("Cancelled hosts:", file=global_log, color=Fore.RED)
@@ -472,12 +486,16 @@ class JobPrint(threading.Thread):
 
 
 class Job:
+    """manage job execution"""
+
     def __init__(self, host, command):
+        """job to run on host init"""
         self.host = host
         self.command = command
         self.status = JobStatus(host=host)
 
     def exec(self, th_id, dirlog):
+        """run command on host using ssh"""
         runq.put(th_id)
         self.status.start = time()
         self.status.thread_id = th_id
@@ -528,13 +546,13 @@ class JobRun(threading.Thread):
         super().__init__()
 
     def run(self):
-        """run commands"""
+        """schedule Jobs / pause / resume"""
         while True:
             try:
                 if pauseq.get(block=False):
                     resumeq.get()
             except queue.Empty:
-                pass    
+                pass
             try:
                 job: Job = jobq.get(block=False)
             except queue.Empty:
@@ -576,6 +594,7 @@ def main():
             i.join()
     exit_code = p.join()
     sys.exit(exit_code)
+
 
 if __name__ == "__main__":
     main()
