@@ -2,6 +2,8 @@
 ![example](https://github.com/joknarf/ssh-para/actions/workflows/python-publish.yml/badge.svg)
 [![Licence](https://img.shields.io/badge/licence-MIT-blue.svg)](https://shields.io/)
 [![](https://pepy.tech/badge/ssh-para)](https://pepy.tech/project/ssh-para)
+[![Python versions](https://img.shields.io/badge/python-3.6+-blue.svg)](https://shields.io/)
+
 
 
 # ssh-para
