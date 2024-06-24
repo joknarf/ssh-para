@@ -1,0 +1,49 @@
+[project]
+name = "ssh-para"
+authors = [
+    { name = "Franck Jouvanceau" },
+]
+maintainers = [
+    { name = "Franck Jouvanceau" },
+]
+
+description = "Interactive Parallel SSH jobs manager"
+dependencies = ["colorama"]
+dynamic=["version"]
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">= 3.6"
+keywords = ["ssh", "cli", "parallel", "jobs"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: System Administrators",
+  "License :: OSI Approved :: BSD License",
+  "Operating System :: POSIX",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.5",
+  "Programming Language :: Python :: 3.6",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: System :: Clustering",
+  "Topic :: System :: Networking",
+  "Topic :: System :: Systems Administration",
+]
+
+[project.urls]
+Homepage = "https://github.com/joknarf/ssh-para"
+Documentation = "https://github.com/joknarf/ssh-para/blob/main/README.md"
+Repository = "https://github.com/joknarf/ssh-para.git"
+
+[build-system]
+requires = ["setuptools >= 61.0", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[project.scripts]
+ssh-para = "ssh_para.ssh_para:main"
