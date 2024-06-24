@@ -569,7 +569,7 @@ def script_command(script, args):
         with open(script, "r", encoding="UTF-8") as fd:
             scriptstr = fd.read()
     except OSError:
-        print(f"ERROR: Cannot open {script}", file=sys.stderr)
+        print(f"ERROR:ssh-para: Cannot open {script}", file=sys.stderr)
         sys.exit(1)
     if args:
         argstr = " ".join([quote(i) for i in args])
@@ -601,7 +601,7 @@ def get_hosts(hostsfile, hosts):
         with open(hostsfile, "r", encoding="UTF-8") as fhosts:
             hosts = fhosts.read().splitlines()
     except OSError:
-        print(f"ERROR: Cannot open {hostsfile}", file=sys.stderr)
+        print(f"ERROR:ssh-para: Cannot open {hostsfile}", file=sys.stderr)
         sys.exit(1)
     return hosts
 
