@@ -19,6 +19,10 @@ from colorama import Fore, init
 
 os.environ["TERM"] = "xterm-256color"
 
+SYMBOL_END = os.environ.get("SSHP_SYM_BEG") or "\ue0b4"
+SYMBOL_BEGIN = os.environ.get("SSHP_SYM_END") or "\ue0b6"
+
+
 jobq = queue.Queue()
 runq = queue.Queue()
 endq = queue.Queue()
@@ -124,8 +128,6 @@ class Segment:
         fg=None,
         style=None,
         seg1=True,
-        symbol="\ue0b4",
-        symbol1="\ue0b6",
     ):
         """curses inits"""
         self.stdscr = stdscr
@@ -143,8 +145,6 @@ class Segment:
         ]
         bg[nbsegments] = curses.COLOR_BLACK
         self.st = style or ["NORMAL"] * nbsegments
-        self.symbol = symbol
-        self.symbol1 = symbol1
         self.seg1 = seg1
         curses.init_pair(1, bg[0], curses.COLOR_BLACK)
         for i in range(0, nbsegments):
@@ -153,10 +153,10 @@ class Segment:
 
     def set_segments(self, x, y, segments):
         """display powerline"""
-        addstr(self.stdscr, y, x, self.symbol1, curses.color_pair(1))
+        addstr(self.stdscr, y, x, SYMBOL_BEGIN, curses.color_pair(1))
         for i, segment in enumerate(segments):
             addstr(self.stdscr, f" {segment} ", curses.color_pair(i * 2 + 2))
-            addstr(self.stdscr, self.symbol, curses.color_pair(i * 2 + 3))
+            addstr(self.stdscr, SYMBOL_END, curses.color_pair(i * 2 + 3))
         self.stdscr.clrtoeol()
 
 
@@ -296,7 +296,7 @@ class JobPrint(threading.Thread):
     def print_status(self, status, duration=0, avgjobdur=0):
         """print thread status"""
         color = self.status_color[status]
-        addstr(self.stdscr, "\ue0b6", curses.color_pair(color + 1))
+        addstr(self.stdscr, SYMBOL_BEGIN, curses.color_pair(color + 1))
         if status == "RUNNING" and avgjobdur:
             pten = min(int(round(duration / avgjobdur * 10, 0)), 10)
             addstr(
@@ -306,7 +306,8 @@ class JobPrint(threading.Thread):
             )  # ▶
         else:
             addstr(self.stdscr, f" {status:8} ", curses.color_pair(color))
-        addstr(self.stdscr, "\ue0b4 ", curses.color_pair(color + 1))
+        addstr(self.stdscr, SYMBOL_END, curses.color_pair(color + 1))
+        addstr(self.stdscr, f" {tdelta(seconds=round(duration))}")
 
     def display_curses(self, status_id, total_dur, jobsdur, nbsshjobs):
         """display threads statuses"""
@@ -332,7 +333,7 @@ class JobPrint(threading.Thread):
                 self.print_status(jstatus.status, duration, avgjobdur)
                 addstrc(
                     self.stdscr,
-                    f" {tdelta(seconds=round(duration))} pid: {str(jstatus.pid):>7} {jstatus.host}",
+                    f" pid: {str(jstatus.pid):>7} {jstatus.host}",
                 )
                 addstrc(self.stdscr, i * 2 + 4, 0, "     " + jstatus.log)
         if len(self.job_status) == self.nbjobs:
@@ -418,7 +419,7 @@ class JobPrint(threading.Thread):
             self.print_status(jstatus.status)
             addstrc(
                 self.stdscr,
-                f"{tdelta(seconds=round(jstatus.duration))} exit:{str(jstatus.exit):>3} {jstatus.host}",
+                f" exit:{str(jstatus.exit):>3} {jstatus.host}",
             )
             addstrc(
                 self.stdscr, 6 + self.nbthreads * 2 + i * 2, 0, "     " + jstatus.log
