@@ -8,7 +8,7 @@ import sys
 import signal
 import threading
 import queue
-from re import sub
+from re import sub, escape
 from time import time, strftime, sleep
 from datetime import timedelta, datetime
 from subprocess import Popen
@@ -204,11 +204,8 @@ class JobPrint(threading.Thread):
         self.startsec = time()
         self.stdscr = None
         self.paused = False
-        home = os.environ.get("HOME")
-        if home:
-            self.pdirlog = sub(rf"^{home}/", "~/", self.dirlog)
-        else:
-            self.pdirlog = self.dirlog
+        home = os.path.expanduser("~/")
+        self.pdirlog = sub(rf"^{escape(home)}", "~/", self.dirlog)
         if sys.stdout.isatty():
             self.init_curses()
         super().__init__()
