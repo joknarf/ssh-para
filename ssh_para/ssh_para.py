@@ -576,13 +576,13 @@ def script_command(script, args):
     else:
         argstr = ""
     command = f"""
-cat - >/tmp/.ssh-para.$$ <<'EOF'
+cat - >/tmp/.ssh-para.$$ <<'__ssh_para_EOF'
 {scriptstr}
-EOF
+__ssh_para_EOF
 chmod u+x /tmp/.ssh-para.$$
 /tmp/.ssh-para.$$ {argstr}
 e=$?
-#rm /tmp/.ssh-para.$$
+rm /tmp/.ssh-para.$$
 exit $e
 """
     return command
