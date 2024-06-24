@@ -274,7 +274,7 @@ class JobPrint(threading.Thread):
                     self.job_status.append(jstatus)
                     nbsshjobs += 1
                     jobsdur += jstatus.duration
-                if jstatus.status == "FAILED":
+                if jstatus.status in ["FAILED", "KILLED", "TIMEOUT"]:
                     self.nbfailed += 1
                     if jstatus.exit == 255:
                         nbsshjobs -= 1
