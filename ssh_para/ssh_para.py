@@ -9,6 +9,7 @@ import signal
 import threading
 import queue
 from re import sub, escape
+from shlex import quote
 from time import time, strftime, sleep
 from datetime import timedelta, datetime
 from subprocess import Popen
@@ -46,8 +47,12 @@ def parse_args():
         help="directory for ouput log files (~/.ssh-para)",
         default=os.path.expanduser("~/.ssh-para"),
     )
-    parser.add_argument("-f", "--hostsfile", help="hosts list file", required=True)
-    parser.add_argument("command", nargs="+")
+    host_group = parser.add_mutually_exclusive_group()
+    host_group.add_argument("-f", "--hostsfile", help="hosts list file")
+    host_group.add_argument("-H", "--hosts", help="hosts list", nargs="+")
+    parser.add_argument("-s", "--script", help="script to execute")
+    parser.add_argument("-a", "--args", nargs="+", help="script arguments")
+    parser.add_argument("command", nargs="*")
     return parser.parse_args()
 
 
@@ -558,6 +563,44 @@ class JobRun(threading.Thread):
             job.exec(self.thread_id, self.dirlog)
 
 
+def script_command(script, args):
+    """build ssh command to transfer and execute script with args"""
+    try:
+        with open(script, "r", encoding="UTF-8") as fd:
+            scriptstr = fd.read()
+    except OSError:
+        print(f"ERROR: Cannot open {script}", file=sys.stderr)
+        sys.exit(1)
+    if args:
+        argstr = " ".join([quote(i) for i in args])
+    else:
+        argstr = ""
+    command = f"""
+cat - >/tmp/.ssh-para.$$ <<'EOF'
+{scriptstr}
+EOF
+chmod u+x /tmp/.ssh-para.$$
+/tmp/.ssh-para.$$ {argstr}
+e=$?
+#rm /tmp/.ssh-para.$$
+exit $e
+"""
+    return command
+
+
+def get_hosts(hostsfile, hosts):
+    """returns hosts list from args host or reading hostfile"""
+    if hosts:
+        return hosts
+    try:
+        with open(hostsfile, "r", encoding="UTF-8") as fhosts:
+            hosts = fhosts.read().splitlines()
+    except OSError:
+        print(f"ERROR: Cannot open {hostsfile}", file=sys.stderr)
+        sys.exit(1)
+    return hosts
+
+
 def main():
     """argument read / read hosts file / prepare commands / launch jobs"""
     init(autoreset=False)
@@ -575,13 +618,18 @@ def main():
         os.symlink(dirlog, latest)
     except OSError:
         pass
-    hosts = []
-    with open(args.hostsfile, "r", encoding="UTF-8") as fhosts:
-        for i in fhosts.readlines():
-            hosts.append(i.rstrip())
-            jobq.put(Job(host=hosts[-1], command=args.command))
+    if args.script:
+        args.command.append(script_command(args.script, args.args))
+        command = [args.script]
+        if args.args:
+            command += args.args
+    else:
+        command = args.command
+    hosts = get_hosts(args.hostsfile, args.hosts)
+    for host in hosts:
+        jobq.put(Job(host=host, command=args.command))
     parallel = min(len(hosts), args.parallel)
-    p = JobPrint(args.command, parallel, len(hosts), dirlog)
+    p = JobPrint(command, parallel, len(hosts), dirlog)
     p.start()
     for i in range(parallel):
         t = JobRun(i, dirlog=dirlog)
