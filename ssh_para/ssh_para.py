@@ -292,14 +292,14 @@ class JobPrint(threading.Thread):
                 self.check_timeouts()
             if len(self.job_status) == self.nbjobs:
                 break
-
+        end = strftime("%X")
         if self.stdscr:
             addstrc(self.stdscr, curses.LINES - 1, 0, "All jobs finished")
             self.stdscr.getch()
             curses.endwin()
             curses.echo()
             curses.curs_set(1)
-        self.print_summary(total_dur)
+        self.print_summary(end, total_dur)
 
     def print_status(self, status, duration=0, avgjobdur=0):
         """print thread status"""
@@ -473,20 +473,22 @@ class JobPrint(threading.Thread):
             self.aborted.append(job.host)
         self.resume()
 
-    def print_summary(self, total_dur):
+    def print_summary(self, end, total_dur):
         """print/log summary of jobs"""
         global_log = open(f"{self.dirlog}/ssh-para.log", "w", encoding="UTF-8")
         if self.aborted:
-            print_tee("Cancelled hosts:", file=global_log, color=Style.BRIGHT+Fore.RED)
+            print_tee(
+                "Cancelled hosts:", file=global_log, color=Style.BRIGHT + Fore.RED
+            )
             for host in self.aborted:
                 print_tee(host, file=global_log)
                 self.nbjobs -= 1
         print_tee("", file=global_log)
         for jstatus in self.job_status:
             if jstatus.exit != 0:
-                color = Style.BRIGHT+Fore.RED
+                color = Style.BRIGHT + Fore.RED
             else:
-                color = Style.BRIGHT+Fore.GREEN
+                color = Style.BRIGHT + Fore.GREEN
             print_tee(
                 f"{jstatus.status}: {jstatus.host}",
                 f"exit: {jstatus.exit}",
@@ -500,7 +502,7 @@ class JobPrint(threading.Thread):
         print_tee("log directory:", self.pdirlog, file=global_log)
         print_tee(
             f"{self.nbjobs} jobs run : Start: {strftime('%X', datetime.fromtimestamp(self.startsec).timetuple())}",
-            f"End: {strftime('%X')} Duration: {total_dur}",
+            f"End: {end} Duration: {total_dur}",
             file=global_log,
         )
         if self.nbfailed == 0:
@@ -511,7 +513,7 @@ class JobPrint(threading.Thread):
                 self.nbfailed,
                 "Job(s) with exit code != 0",
                 file=global_log,
-                color=Style.BRIGHT+Fore.RED,
+                color=Style.BRIGHT + Fore.RED,
             )
         global_log.close()
 
