@@ -39,8 +39,8 @@ def parse_args():
     parser.add_argument(
         "-d",
         "--dirlog",
-        help="directory for ouput log files (~/.parassh)",
-        default=os.path.expanduser("~/.parassh"),
+        help="directory for ouput log files (~/.ssh-para)",
+        default=os.path.expanduser("~/.ssh-para"),
     )
     parser.add_argument("-f", "--hostsfile", help="hosts list file", required=True)
     parser.add_argument("command", nargs="+")
@@ -427,7 +427,7 @@ class JobPrint(threading.Thread):
         self.resume()
 
     def print_summary(self, total_dur):
-        global_log = open(f"{self.dirlog}/parassh.log", "w", encoding="UTF-8")
+        global_log = open(f"{self.dirlog}/ssh-para.log", "w", encoding="UTF-8")
         if self.aborted:
             print_tee("Cancelled hosts:", file=global_log, color=Fore.RED)
             for host in self.aborted:
@@ -547,6 +547,10 @@ def main():
     if args.job:
         dirlog += f"/{args.job}"
     dirlog += "/" + str(int(time()))
+    latest = f"{args.dirlog}/latest"
+    if os.path.exists(latest):
+        os.unlink(latest)
+    os.symlink(dirlog, latest)
     if not os.path.isdir(dirlog):
         os.makedirs(dirlog)
     hosts = []
