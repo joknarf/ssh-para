@@ -579,6 +579,11 @@ def script_command(script, args):
 cat - >/tmp/.ssh-para.$$ <<'__ssh_para_EOF'
 {scriptstr}
 __ssh_para_EOF
+[ $? = 0 ] || {{
+    echo "ERROR:ssh-para: Cannot create /tmp/.ssh-para.$$" >&2
+    rm -f /tmp/.ssh-para.$$
+    exit 255
+}}
 chmod u+x /tmp/.ssh-para.$$
 /tmp/.ssh-para.$$ {argstr}
 e=$?
