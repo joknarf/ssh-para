@@ -34,6 +34,8 @@ resumeq = queue.Queue()
 
 def parse_args():
     """argument parse"""
+    if len(sys.argv) == 1:
+        sys.argv.append("-h")
     parser = ArgumentParser()
     parser.add_argument(
         "-p", "--parallel", type=int, help="parallelism (default 4)", default=4
