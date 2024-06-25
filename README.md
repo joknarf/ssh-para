@@ -20,14 +20,15 @@ Parallel SSH jobs manager CLI (alternative to parallel-ssh)
 ```shell
 pip install ssh-para
 ```
+By default, `ssh-para` uses Nerd Fonts characters (can be overridden with SSHP_SYM_* environment variables, see below)
+
 # usage
 ```
 ssh-para -h
 ```
 ```
 usage: ssh-para [-h] [-p PARALLEL] [-j JOB] [-d DIRLOG] [-f HOSTSFILE | -H HOSTS [HOSTS ...]]
-                [-s SCRIPT] [-a ARGS [ARGS ...]] [-t TIMEOUT]
-                [ssh_args ...]
+                [-s SCRIPT] [-a ARGS [ARGS ...]] [-t TIMEOUT] [-r] -- [ssh_args ...]
 
 positional arguments:
   ssh_args
@@ -49,6 +50,7 @@ options:
                         script arguments
   -t TIMEOUT, --timeout TIMEOUT
                         timeout of each jobs
+  -r, --resolve         resolve fqdn in SSHP_DOMAINS
 ```
 During run, use :
 * k: to kill ssh command held by a thread (but remote command can still be running on remote host)
@@ -56,6 +58,13 @@ During run, use :
 * r: resume scheduling of jobs
 * a: abort all remaining jobs
 * ctrl-c: stop all/exit (but remote commands launched by ssh can still be running on remote servers)
+
+Environment variables:
+* SSHP_OPTS: ssh default options (Eg: "-F /home/user/.ssh/myconfig")
+* SSHP_DOMAINS: dns domains to search when short hostname given (with -r/--resolve option)
+* SSHP_SYM_BEG: Symbol character for begin decorative (default: "\ue0b4")
+* SSHP_SYM_END: Symbol character for end decorative (default: "\ue0b6")
+* SSHP_SYM_PROG: Symbol character for progress bar fill (default: "\u25a0")
 
 # Example
 

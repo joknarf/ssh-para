@@ -9,6 +9,7 @@ import signal
 import threading
 import queue
 from re import sub, escape
+from socket import gethostbyname_ex
 from shlex import quote
 from time import time, strftime, sleep
 from datetime import timedelta, datetime
@@ -22,7 +23,9 @@ os.environ["TERM"] = "xterm-256color"
 
 SYMBOL_END = os.environ.get("SSHP_SYM_BEG") or "\ue0b4"
 SYMBOL_BEGIN = os.environ.get("SSHP_SYM_END") or "\ue0b6"
-SYMBOL_PROG = os.environ.get("SSH_SYM_PROG") or "■"
+SYMBOL_PROG = os.environ.get("SSHP_SYM_PROG") or "\u25a0"
+DNS_DOMAINS = os.environ.get("SSHP_DOMAINS") or ""
+SSH_OPTS = os.environ.get("SSHP_OPTS") or ""
 
 jobq = queue.Queue()
 runq = queue.Queue()
@@ -55,6 +58,9 @@ def parse_args():
     parser.add_argument("-s", "--script", help="script to execute")
     parser.add_argument("-a", "--args", nargs="+", help="script arguments")
     parser.add_argument("-t", "--timeout", type=int, help="timeout of each job")
+    parser.add_argument(
+        "-r", "--resolve", action="store_true", help="resolve fqdn in SSHP_DOMAINS"
+    )
     parser.add_argument("ssh_args", nargs="*")
     return parser.parse_args()
 
@@ -66,6 +72,32 @@ def sigint_handler(*args):
     except curses.error:
         pass
     os._exit(1)
+
+
+def resolve_host(host):
+    """try get fqdn from DNS"""
+    try:
+        res = gethostbyname_ex(host)
+    except OSError:
+        return None
+    return res[0]
+
+
+def resolve_in_domains(host, domains):
+    """try get fqdn from short hostname in domains"""
+    fqdn = resolve_host(host)
+    if fqdn:
+        return fqdn
+    for domain in domains:
+        fqdn = resolve_host(f"{host}.{domain}")
+        if fqdn:
+            return fqdn
+    return host
+
+
+def resolve_hosts(hosts, domains):
+    """try resolve hosts to get fqdn"""
+    return [resolve_in_domains(host, domains) for host in hosts]
 
 
 def addstr(stdscr, *args, **kwargs):
@@ -534,7 +566,11 @@ class Job:
         runq.put(th_id)
         self.status.start = time()
         self.status.thread_id = th_id
-        jobcmd = ["ssh", self.host, "-T", "-n", "-o", "BatchMode=yes"] + self.command
+        jobcmd = (
+            ["ssh", self.host, "-T", "-n", "-o", "BatchMode=yes"]
+            + SSH_OPTS.split()
+            + self.command
+        )
         self.status.logfile = f"{dirlog}/{self.host}.out"
         if dirlog:
             fdout = open(self.status.logfile, "w", encoding="UTF-8", buffering=1)
@@ -635,7 +671,7 @@ def get_hosts(hostsfile, hosts):
     try:
         with open(hostsfile, "r", encoding="UTF-8") as fhosts:
             hosts = fhosts.read().splitlines()
-    except (OSError):
+    except OSError:
         print(f"ERROR:ssh-para: Cannot open {hostsfile}", file=sys.stderr)
         sys.exit(1)
     return hosts
@@ -666,6 +702,8 @@ def main():
     else:
         command = args.ssh_args
     hosts = get_hosts(args.hostsfile, args.hosts)
+    if args.resolve:
+        hosts = resolve_hosts(hosts, DNS_DOMAINS.split())
     if not args.ssh_args:
         print("ERROR:ssh-para: No ssh command supplied", file=sys.stderr)
         sys.exit(1)
