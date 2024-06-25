@@ -637,7 +637,7 @@ def script_command(script, args):
         with open(script, "r", encoding="UTF-8") as fd:
             scriptstr = fd.read()
     except OSError:
-        print(f"ERROR:ssh-para: Cannot open {script}", file=sys.stderr)
+        print(f"ERROR: ssh-para: Cannot open {script}", file=sys.stderr)
         sys.exit(1)
     if args:
         argstr = " ".join([quote(i) for i in args])
@@ -648,7 +648,7 @@ cat - >/tmp/.ssh-para.$$ <<'__ssh_para_EOF'
 {scriptstr}
 __ssh_para_EOF
 [ $? = 0 ] || {{
-    echo "ERROR:ssh-para: Cannot create /tmp/.ssh-para.$$" >&2
+    echo "ERROR: ssh-para: Cannot create /tmp/.ssh-para.$$" >&2
     rm -f /tmp/.ssh-para.$$
     exit 255
 }}
@@ -666,13 +666,13 @@ def get_hosts(hostsfile, hosts):
     if hosts:
         return hosts
     if not hostsfile:
-        print(f"ERROR:ssh-para:No hosts definition", file=sys.stderr)
+        print("ERROR: ssh-para: No hosts definition", file=sys.stderr)
         sys.exit(1)
     try:
         with open(hostsfile, "r", encoding="UTF-8") as fhosts:
             hosts = fhosts.read().splitlines()
     except OSError:
-        print(f"ERROR:ssh-para: Cannot open {hostsfile}", file=sys.stderr)
+        print(f"ERROR: ssh-para: Cannot open {hostsfile}", file=sys.stderr)
         sys.exit(1)
     return hosts
 
@@ -705,7 +705,7 @@ def main():
     if args.resolve:
         hosts = resolve_hosts(hosts, DNS_DOMAINS.split())
     if not args.ssh_args:
-        print("ERROR:ssh-para: No ssh command supplied", file=sys.stderr)
+        print("ERROR: ssh-para: No ssh command supplied", file=sys.stderr)
         sys.exit(1)
     for host in hosts:
         jobq.put(Job(host=host, command=args.ssh_args))
