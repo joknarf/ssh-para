@@ -134,10 +134,11 @@ def tdelta(*args, **kwargs):
     return str(timedelta(*args, **kwargs)).split(".", maxsplit=1)[0]
 
 
-def print_tee(*args, file, color=""):
+def print_tee(*args, file=None, color="", **kwargs):
     """print stdout + file"""
-    print(color, *args, Fore.RESET, file=sys.stderr)
-    print(*args, file=file)
+    print(" ".join([color] + list(args)), file=sys.stderr, **kwargs)
+    if file:
+        print(*args, file=file, **kwargs)
 
 
 def last_line(fd):
@@ -231,6 +232,7 @@ class JobPrint(threading.Thread):
         "IDLE": 106,
     }
     COLOR_GAUGE = 108
+    COLOR_HOST = 110
 
     def __init__(self, command, nbthreads, nbjobs, dirlog, timeout=0):
         """init properties / thread"""
@@ -281,6 +283,7 @@ class JobPrint(threading.Thread):
         curses.init_pair(self.status_color["IDLE"], curses.COLOR_WHITE, 8)
         curses.init_pair(self.status_color["IDLE"] + 1, 8, curses.COLOR_BLACK)
         curses.init_pair(self.COLOR_GAUGE, 8, curses.COLOR_BLUE)
+        curses.init_pair(self.COLOR_HOST, curses.COLOR_YELLOW, curses.COLOR_BLACK)
 
     def join(self, *args):
         """returns nb failed"""
@@ -387,10 +390,8 @@ class JobPrint(threading.Thread):
                 th_id = str(i).zfill(2)
                 addstr(self.stdscr, i * 2 + 3, 0, f" {th_id} ")
                 self.print_status(jstatus.status, duration, avgjobdur)
-                addstrc(
-                    self.stdscr,
-                    f" pid: {str(jstatus.pid):>7} {jstatus.host}",
-                )
+                addstr(self.stdscr, f" pid: {str(jstatus.pid):>7} ");
+                addstrc(self.stdscr, jstatus.host, curses.color_pair(self.COLOR_HOST))
                 addstrc(self.stdscr, i * 2 + 4, 0, "     " + jstatus.log)
         if len(self.job_status) == self.nbjobs:
             self.resume()
@@ -480,10 +481,8 @@ class JobPrint(threading.Thread):
                 break
             addstr(self.stdscr, 5 + self.nbthreads * 2 + i * 2, 0, "")
             self.print_status(jstatus.status, jstatus.duration)
-            addstrc(
-                self.stdscr,
-                f" exit:{str(jstatus.exit):>3} {jstatus.host}",
-            )
+            addstr(self.stdscr, f" exit:{str(jstatus.exit):>3} ")
+            addstrc(self.stdscr, jstatus.host, curses.color_pair(self.COLOR_HOST))
             addstrc(
                 self.stdscr, 6 + self.nbthreads * 2 + i * 2, 0, "     " + jstatus.log
             )
@@ -522,13 +521,12 @@ class JobPrint(threading.Thread):
                 color = Style.BRIGHT + Fore.RED
             else:
                 color = Style.BRIGHT + Fore.GREEN
-            print_tee(
-                f"{jstatus.status}: {jstatus.host}",
-                f"exit: {jstatus.exit}",
+            print_tee(f"{jstatus.status:8}:", color=color, file=global_log, end="")
+            print_tee(jstatus.host, color=Fore.YELLOW, file=global_log, end="")
+            print_tee(f"exit: {jstatus.exit}",
                 f"dur: {tdelta(seconds=jstatus.duration)}",
                 f"{self.pdirlog}/{jstatus.host}.out",
                 file=global_log,
-                color=color,
             )
             print_tee(" ", jstatus.log, file=global_log)
         print_tee("command:", self.command, file=global_log)
@@ -542,9 +540,7 @@ class JobPrint(threading.Thread):
             print_tee("All Jobs with exit code 0", file=global_log)
         else:
             print_tee(
-                "WARNING :",
-                self.nbfailed,
-                "Job(s) with exit code != 0",
+                f"WARNING : {str(self.nbfailed)} Job(s) with exit code != 0",
                 file=global_log,
                 color=Style.BRIGHT + Fore.RED,
             )
@@ -678,7 +674,7 @@ def get_hosts(hostsfile, hosts):
 
 def main():
     """argument read / read hosts file / prepare commands / launch jobs"""
-    init(autoreset=False)
+    init(autoreset=True)
     args = parse_args()
     dirlog = args.dirlog
     if args.job:
