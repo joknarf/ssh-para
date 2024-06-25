@@ -255,7 +255,6 @@ class JobPrint(threading.Thread):
 
     def init_curses(self):
         """curses window init"""
-        signal.signal(signal.SIGINT, sigint_handler)
         self.stdscr = curses.initscr()
         curses.noecho()
         curses.curs_set(0)
@@ -703,13 +702,16 @@ def main():
         command = args.ssh_args
     hosts = get_hosts(args.hostsfile, args.hosts)
     if args.resolve:
+        print("Notice: ssh-para: Resolving hosts...", file=sys.stderr)
         hosts = resolve_hosts(hosts, DNS_DOMAINS.split())
+        print("Notice: ssh-para: Resolve done", file=sys.stderr)
     if not args.ssh_args:
         print("ERROR: ssh-para: No ssh command supplied", file=sys.stderr)
         sys.exit(1)
     for host in hosts:
         jobq.put(Job(host=host, command=args.ssh_args))
     parallel = min(len(hosts), args.parallel)
+    signal.signal(signal.SIGINT, sigint_handler)
     p = JobPrint(command, parallel, len(hosts), dirlog, args.timeout)
     p.start()
     for i in range(parallel):
