@@ -69,14 +69,18 @@ Environment variables:
 # Example
 
 Patch redhat family hosts:
-```
+```shell
 ssh-para -p 20 -f hostlist.txt -- 'sudo yum update -y;sudo shutdown -r +1'
 ```
 Use specific ssh options / config (everything after `--` will be passed to ssh command as is):
-```
+```shell
 ssh-para -p 20 -H host1 host2 -- -F ~/.ssh/myconfig echo connect ok
 ```
 Launch local script with argument on remote hosts:
-```
+```shell
 ssh-para -p 20 -f hosts.txt -s ./myscript -a status
+```
+Extend limited resolv.conf search domains (try to resolve host in each domain, first resolved in the domain list is used as fqdn):
+```shell
+SSHP_DOMAINS="domain1.com domain2.com" ssh-para -r -H host1 host2 -- echo connect ok
 ```
