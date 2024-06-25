@@ -141,19 +141,29 @@ def print_tee(*args, file=None, color="", **kwargs):
         print(*args, file=file, **kwargs)
 
 
-def last_line(fd):
+def decode_line(line):
+    """try decode line exception on binary"""
+    try:
+        return line.decode()
+    except UnicodeDecodeError:
+        return ""
+
+
+def last_line(fd, maxline=1000):
     """last non empty line of file"""
     line = "\n"
     fd.seek(0, os.SEEK_END)
-    while line == "\n":
+    size = 0
+    while line == "\n" and size < maxline:
         try:  # catch if file empty / only empty lines
             while fd.read(1) != b"\n":
                 fd.seek(-2, os.SEEK_CUR)
+                size += 1
         except OSError:
             fd.seek(0)
-            line = fd.readline().decode()
+            line = decode_line(fd.readline())
             break
-        line = fd.readline().decode()
+        line = decode_line(fd.readline())
         fd.seek(-4, os.SEEK_CUR)
     return line.strip() + "\n"
 
@@ -390,7 +400,7 @@ class JobPrint(threading.Thread):
                 th_id = str(i).zfill(2)
                 addstr(self.stdscr, i * 2 + 3, 0, f" {th_id} ")
                 self.print_status(jstatus.status, duration, avgjobdur)
-                addstr(self.stdscr, f" pid: {str(jstatus.pid):>7} ");
+                addstr(self.stdscr, f" pid: {str(jstatus.pid):>7} ")
                 addstrc(self.stdscr, jstatus.host, curses.color_pair(self.COLOR_HOST))
                 addstrc(self.stdscr, i * 2 + 4, 0, "     " + jstatus.log)
         if len(self.job_status) == self.nbjobs:
@@ -523,7 +533,8 @@ class JobPrint(threading.Thread):
                 color = Style.BRIGHT + Fore.GREEN
             print_tee(f"{jstatus.status:8}:", color=color, file=global_log, end="")
             print_tee(jstatus.host, color=Fore.YELLOW, file=global_log, end="")
-            print_tee(f"exit: {jstatus.exit}",
+            print_tee(
+                f"exit: {jstatus.exit}",
                 f"dur: {tdelta(seconds=jstatus.duration)}",
                 f"{self.pdirlog}/{jstatus.host}.out",
                 file=global_log,
