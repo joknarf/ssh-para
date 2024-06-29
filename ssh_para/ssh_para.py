@@ -363,6 +363,7 @@ class JobPrint(threading.Thread):
                 self.check_timeouts()
             if len(self.job_status) == self.nbjobs:
                 break
+        self.resume()
         end = strftime("%X")
         if self.stdscr:
             addstrc(self.stdscr, curses.LINES - 1, 0, "All jobs finished")
@@ -371,6 +372,20 @@ class JobPrint(threading.Thread):
             curses.echo()
             curses.curs_set(1)
         self.print_summary(end, total_dur)
+
+    def check_timeout(self, th_id, duration):
+        """kill ssh if duration exceeds timeout"""
+        if not self.timeout:
+            return
+        if duration > self.timeout:
+            self.kill("TIMEOUT", th_id)
+
+    def check_timeouts(self):
+        """check threads timemout"""
+        for i, jstatus in enumerate(self.th_status):
+            if jstatus.status == "RUNNING":
+                duration = time() - jstatus.start
+                self.check_timeout(i, duration)
 
     def print_status(self, status, duration=0, avgjobdur=0):
         """print thread status"""
@@ -388,19 +403,22 @@ class JobPrint(threading.Thread):
         addstr(self.stdscr, SYMBOL_END, curses.color_pair(color + 1))
         addstr(self.stdscr, f" {tdelta(seconds=round(duration))}")
 
-    def check_timeout(self, th_id, duration):
-        """kill ssh if duration exceeds timeout"""
-        if not self.timeout:
-            return
-        if duration > self.timeout:
-            self.kill("TIMEOUT", th_id)
-
-    def check_timeouts(self):
-        """check threads timemout"""
-        for i, jstatus in enumerate(self.th_status):
-            if jstatus.status == "RUNNING":
-                duration = time() - jstatus.start
-                self.check_timeout(i, duration)
+    def print_job(self, line_num, jstatus, duration, avgjobdur):
+        """print host runnin on thread and last out line"""
+        th_id = str(jstatus.thread_id).zfill(2)
+        addstr(self.stdscr, line_num, 0, f" {th_id} ")
+        self.print_status(jstatus.status, duration, avgjobdur)
+        addstr(self.stdscr, f" {str(jstatus.pid):>7} ")
+        if self.verbose:
+            addstrc(self.stdscr, jstatus.host, curses.color_pair(self.COLOR_HOST))
+            addstrc(self.stdscr, line_num + 1, 0, "     " + jstatus.log)
+        else:
+            addstr(
+                self.stdscr,
+                f"{short_host(jstatus.host):{self.maxhostlen}} {SYMBOL_RES} ",
+                curses.color_pair(self.COLOR_HOST),
+            )
+            addstrc(self.stdscr, jstatus.log)
 
     def display_curses(self, status_id, total_dur, jobsdur, nbsshjobs):
         """display threads statuses"""
@@ -413,37 +431,20 @@ class JobPrint(threading.Thread):
         if nbsshjobs:
             avgjobdur = jobsdur / nbsshjobs
         inter = self.verbose + 1
-        i = 0
-        for i, jstatus in enumerate(self.th_status):
-            if jstatus.fdlog and i != status_id:
+        line_num = 3
+        for jstatus in self.th_status:
+            if jstatus.fdlog and jstatus.thread_id != status_id:
                 jstatus.log = last_line(jstatus.fdlog)
             if jstatus.status == "RUNNING":
                 duration = time() - jstatus.start
-                self.check_timeout(i, duration)
+                self.check_timeout(jstatus.thread_id, duration)
                 last_start = max(last_start, jstatus.start)
             else:
                 duration = jstatus.duration
-            if curses.LINES > i * inter + 5:
-                th_id = str(i).zfill(2)
-                addstr(self.stdscr, i * inter + 3, 0, f" {th_id} ")
-                self.print_status(jstatus.status, duration, avgjobdur)
-                addstr(self.stdscr, f" {str(jstatus.pid):>7} ")
-                if self.verbose:
-                    addstrc(
-                        self.stdscr, jstatus.host, curses.color_pair(self.COLOR_HOST)
-                    )
-                    addstrc(self.stdscr, i * inter + 4, 0, "     " + jstatus.log)
-                else:
-                    addstr(
-                        self.stdscr,
-                        f"{short_host(jstatus.host):{self.maxhostlen}} {SYMBOL_RES} ",
-                        curses.color_pair(self.COLOR_HOST),
-                    )
-                    addstrc(self.stdscr, jstatus.log)
-        addstrc(self.stdscr, i * inter + 4 + self.verbose, 0, "")
-        if len(self.job_status) == self.nbjobs:
-            self.resume()
-            self.nbthreads = 0
+            if curses.LINES > line_num and jstatus.status == "RUNNING":
+                self.print_job(line_num, jstatus, duration, avgjobdur)
+                line_num += inter
+        addstrc(self.stdscr, line_num, 0, "")
         if nbsshjobs:
             last_dur = time() - last_start
             nbjobsq = max(min(self.nbthreads, nbrun), 1)
@@ -467,7 +468,7 @@ class JobPrint(threading.Thread):
         )
         addstrc(self.stdscr, 1, 0, f" Dirlog: {self.pdirlog} Command: {self.command}")
         addstrc(self.stdscr, 2, 0, "")
-        self.print_finished()
+        self.print_finished(line_num + (nbrun > 0))
         if self.paused:
             addstrc(self.stdscr, curses.LINES - 1, 0, "[a]bort [k]ill [r]esume")
         else:
@@ -521,14 +522,12 @@ class JobPrint(threading.Thread):
             fillq(resumeq, self.nbthreads)
             self.paused = False
 
-    def print_finished(self):
+    def print_finished(self, line_num):
         """display finished jobs"""
         addstr(self.stdscr, curses.LINES - 1, 0, "")
         inter = self.verbose + 1
-        line = self.nbthreads != 0
-        for i, jstatus in enumerate(self.job_status[::-1]):
-            line_num = 3 + self.nbthreads * inter + line + i * inter
-            if curses.LINES <= line_num:
+        for jstatus in self.job_status[::-1]:
+            if curses.LINES < line_num:
                 break
             addstr(self.stdscr, line_num, 0, "")
             self.print_status(jstatus.status, jstatus.duration)
@@ -543,6 +542,7 @@ class JobPrint(threading.Thread):
                     curses.color_pair(self.COLOR_HOST),
                 )
                 addstrc(self.stdscr, jstatus.log)
+            line_num += inter
         self.stdscr.clrtobot()
 
     def abort_jobs(self):
