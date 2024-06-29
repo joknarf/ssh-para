@@ -28,7 +28,7 @@ ssh-para -h
 ```
 ```
 usage: ssh-para [-h] [-p PARALLEL] [-j JOB] [-d DIRLOG] [-f HOSTSFILE | -H HOSTS [HOSTS ...]]
-                [-s SCRIPT] [-a ARGS [ARGS ...]] [-t TIMEOUT] [-r] -- [ssh_args ...]
+                [-s SCRIPT] [-a ARGS [ARGS ...]] [-t TIMEOUT] [-r] [-v] -- [ssh_args ...]
 
 positional arguments:
   ssh_args
