@@ -233,7 +233,7 @@ class JobStatus:
     host: str = ""
     duration: int = 0
     pid: int = -1
-    exit: int = -1
+    exit: int|None = None
     logfile: str = ""
     log: str = ""
     thread_id: int = -1
@@ -339,7 +339,7 @@ class JobPrint(threading.Thread):
                 if not jstatus.fdlog:  # RUNNING
                     jstatus.fdlog = open(jstatus.logfile, "rb")
                 jstatus.log = last_line(jstatus.fdlog)
-                if jstatus.exit != -1:
+                if jstatus.exit is not None:
                     jstatus.fdlog.close()
                     jstatus.fdlog = 0
                     self.job_status.append(jstatus)
@@ -367,6 +367,7 @@ class JobPrint(threading.Thread):
         end = strftime("%X")
         if self.stdscr:
             addstrc(self.stdscr, curses.LINES - 1, 0, "All jobs finished")
+            self.stdscr.refresh()
             self.stdscr.getch()
             curses.endwin()
             curses.echo()
@@ -528,7 +529,7 @@ class JobPrint(threading.Thread):
         addstr(self.stdscr, curses.LINES - 1, 0, "")
         inter = self.verbose + 1
         for jstatus in self.job_status[::-1]:
-            if curses.LINES < line_num:
+            if curses.LINES < line_num+2:
                 break
             addstr(self.stdscr, line_num, 0, "")
             self.print_status(jstatus.status, jstatus.duration)
@@ -542,7 +543,7 @@ class JobPrint(threading.Thread):
                     f"{short_host(jstatus.host):{self.maxhostlen}} {SYMBOL_RES} ",
                     curses.color_pair(self.COLOR_HOST),
                 )
-                addstrc(self.stdscr, jstatus.log)
+                addstrc(self.stdscr, str(jstatus.log if jstatus.log.isprintable else ""))
             line_num += inter
         self.stdscr.clrtobot()
 
@@ -643,9 +644,9 @@ class Job:
         printq.put(self.status)
         p.wait()
         fdout.close()
+        endq.put(th_id)
         self.status.exit = p.returncode
         self.status.duration = time() - self.status.start
-        endq.put(th_id)
         self.status.status = "SUCCESS" if self.status.exit == 0 else "FAILED"
         printq.put(self.status)
         with open(f"{dirlog}/{self.host}.status", "w", encoding="UTF-8") as fstatus:
