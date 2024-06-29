@@ -455,14 +455,15 @@ class JobPrint(threading.Thread):
             )
         else:
             estimated = ".:..:.."
+        jobslabel = "paused" if self.paused else "pending"
         self.segment.set_segments(
             0,
             0,
             [
-                f"Running: {nbrun}",
-                f"Done: {nbend}/{self.nbjobs}",
-                f"Failed: {self.nbfailed}",
-                f"Duration: {total_dur}",
+                f"running: {nbrun} {jobslabel}: {self.nbjobs-nbend-nbrun}",
+                f"done: {nbend}/{self.nbjobs}",
+                f"failed: {self.nbfailed}",
+                f"duration: {total_dur}",
                 f"ETA: {estimated}",
             ],
         )
