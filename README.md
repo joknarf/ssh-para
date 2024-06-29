@@ -20,7 +20,7 @@ Parallel SSH jobs manager CLI (alternative to parallel-ssh)
 ```shell
 pip install ssh-para
 ```
-By default, `ssh-para` uses Nerd Fonts characters (can be overridden with SSHP_SYM_* environment variables, see below)
+By default, `ssh-para` uses Nerd Fonts glyphs, modern terminals can now render the glyphs without installing specific font (the symbols can be overridden with SSHP_SYM_* environment variables, see below)
 
 # usage
 ```
@@ -66,7 +66,7 @@ Environment variables:
 * SSHP_SYM_BEG: Symbol character for begin decorative (default: "\ue0b4")
 * SSHP_SYM_END: Symbol character for end decorative (default: "\ue0b6")
 * SSHP_SYM_PROG: Symbol character for progress bar fill (default: "\u25a0")
-* SSHP_SYM_RES: Symbol character before ssh output line (default: "\u25b6") 
+* SSHP_SYM_RES: Symbol character before ssh output line (default: "\u25b6")
 
 # Example
 
@@ -86,3 +86,10 @@ Extend limited resolv.conf search domains (try to resolve host in each domain, f
 ```shell
 SSHP_DOMAINS="domain1.com domain2.com" ssh-para -r -H host1 host2 -- echo connect ok
 ```
+
+# Tips
+
+* if you are using ssh ProxyJump server to reach hosts, you may need to tweak the sshd MaxStartups setting on the ssh Proxy server with high parallelism
+  * when ssh-para starts, it waits for 0.2 seconds when starting the first ssh command of each thread to avoid flooding.
+* if you are using remote connexion to launch the ssh-para, use `screen` to launch ssh-para, as if you lose your connection, ssh-para will be still running and you can re-attach to `screen` to continue follow-up.
+* Be very carefull when launching massive commands on servers... Always first test on non production.
