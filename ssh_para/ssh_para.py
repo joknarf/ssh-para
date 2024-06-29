@@ -440,7 +440,7 @@ class JobPrint(threading.Thread):
                         curses.color_pair(self.COLOR_HOST),
                     )
                     addstrc(self.stdscr, jstatus.log)
-        addstrc(self.stdscr, i * inter + 4, 0, "")
+        addstrc(self.stdscr, i * inter + 4 + self.verbose, 0, "")
         if len(self.job_status) == self.nbjobs:
             self.resume()
             self.nbthreads = 0
