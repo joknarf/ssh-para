@@ -427,7 +427,7 @@ class JobPrint(threading.Thread):
                 th_id = str(i).zfill(2)
                 addstr(self.stdscr, i * inter + 3, 0, f" {th_id} ")
                 self.print_status(jstatus.status, duration, avgjobdur)
-                addstr(self.stdscr, f" pid: {str(jstatus.pid):>7} ")
+                addstr(self.stdscr, f" {str(jstatus.pid):>7} ")
                 if self.verbose:
                     addstrc(
                         self.stdscr, jstatus.host, curses.color_pair(self.COLOR_HOST)
