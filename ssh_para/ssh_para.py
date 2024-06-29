@@ -25,7 +25,7 @@ os.environ["TERM"] = "xterm-256color"
 SYMBOL_END = os.environ.get("SSHP_SYM_BEG") or "\ue0b4"
 SYMBOL_BEGIN = os.environ.get("SSHP_SYM_END") or "\ue0b6"
 SYMBOL_PROG = os.environ.get("SSHP_SYM_PROG") or "\u25a0"
-SYMBOL_RES = os.environ.get("SSHP_SYM_RES") or "\u25b6" #"\ue0b0"
+SYMBOL_RES = os.environ.get("SSHP_SYM_RES") or "\u25b6"  # "\ue0b0"
 DNS_DOMAINS = os.environ.get("SSHP_DOMAINS") or ""
 SSH_OPTS = os.environ.get("SSHP_OPTS") or ""
 
@@ -64,7 +64,10 @@ def parse_args():
         "-r", "--resolve", action="store_true", help="resolve fqdn in SSHP_DOMAINS"
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true", help="verbose display (fqdn + line for last output)"
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="verbose display (fqdn + line for last output)",
     )
     parser.add_argument("ssh_args", nargs="*")
     return parser.parse_args()
@@ -172,8 +175,11 @@ def last_line(fd, maxline=1000):
         fd.seek(-4, os.SEEK_CUR)
     return line.strip() + "\n"
 
+
 def short_host(host):
-    return re.sub(r'\..*','', host)
+    """remove dns domain from fqdn"""
+    return re.sub(r"\..*", "", host)
+
 
 class Segment:
     """display of colored powerline style"""
@@ -251,7 +257,16 @@ class JobPrint(threading.Thread):
     COLOR_GAUGE = 108
     COLOR_HOST = 110
 
-    def __init__(self, command, nbthreads, nbjobs, dirlog, timeout=0, verbose=False, maxhostlen=15):
+    def __init__(
+        self,
+        command,
+        nbthreads,
+        nbjobs,
+        dirlog,
+        timeout=0,
+        verbose=False,
+        maxhostlen=15,
+    ):
         """init properties / thread"""
         super().__init__()
         self.th_status = [JobStatus() for i in range(nbthreads)]
@@ -277,7 +292,7 @@ class JobPrint(threading.Thread):
     def init_curses(self):
         """curses window init"""
         self.stdscr = curses.initscr()
-        #self.stdscr.scrollok(True)
+        # self.stdscr.scrollok(True)
         curses.noecho()
         curses.curs_set(0)
         curses.start_color()
@@ -398,6 +413,7 @@ class JobPrint(threading.Thread):
         if nbsshjobs:
             avgjobdur = jobsdur / nbsshjobs
         inter = self.verbose + 1
+        i = 0
         for i, jstatus in enumerate(self.th_status):
             if jstatus.fdlog and i != status_id:
                 jstatus.log = last_line(jstatus.fdlog)
@@ -413,12 +429,18 @@ class JobPrint(threading.Thread):
                 self.print_status(jstatus.status, duration, avgjobdur)
                 addstr(self.stdscr, f" pid: {str(jstatus.pid):>7} ")
                 if self.verbose:
-                    addstrc(self.stdscr, jstatus.host, curses.color_pair(self.COLOR_HOST))
+                    addstrc(
+                        self.stdscr, jstatus.host, curses.color_pair(self.COLOR_HOST)
+                    )
                     addstrc(self.stdscr, i * inter + 4, 0, "     " + jstatus.log)
                 else:
-                    addstr(self.stdscr, f"{short_host(jstatus.host):{self.maxhostlen}} {SYMBOL_RES} ", curses.color_pair(self.COLOR_HOST))
+                    addstr(
+                        self.stdscr,
+                        f"{short_host(jstatus.host):{self.maxhostlen}} {SYMBOL_RES} ",
+                        curses.color_pair(self.COLOR_HOST),
+                    )
                     addstrc(self.stdscr, jstatus.log)
-        addstrc(self.stdscr, i*inter+4, 0, "")
+        addstrc(self.stdscr, i * inter + 4, 0, "")
         if len(self.job_status) == self.nbjobs:
             self.resume()
             self.nbthreads = 0
@@ -503,7 +525,7 @@ class JobPrint(threading.Thread):
         """display finished jobs"""
         addstr(self.stdscr, curses.LINES - 1, 0, "")
         inter = self.verbose + 1
-        line = (self.nbthreads != 0)
+        line = self.nbthreads != 0
         for i, jstatus in enumerate(self.job_status[::-1]):
             line_num = 3 + self.nbthreads * inter + line + i * inter
             if curses.LINES <= line_num:
@@ -515,7 +537,11 @@ class JobPrint(threading.Thread):
                 addstrc(self.stdscr, jstatus.host, curses.color_pair(self.COLOR_HOST))
                 addstrc(self.stdscr, line_num + 1, 0, "     " + jstatus.log)
             else:
-                addstr(self.stdscr, f"{short_host(jstatus.host):{self.maxhostlen}} {SYMBOL_RES} ", curses.color_pair(self.COLOR_HOST))
+                addstr(
+                    self.stdscr,
+                    f"{short_host(jstatus.host):{self.maxhostlen}} {SYMBOL_RES} ",
+                    curses.color_pair(self.COLOR_HOST),
+                )
                 addstrc(self.stdscr, jstatus.log)
         self.stdscr.clrtobot()
 
@@ -743,7 +769,9 @@ def main():
         jobq.put(Job(host=host, command=args.ssh_args))
     parallel = min(len(hosts), args.parallel)
     signal.signal(signal.SIGINT, sigint_handler)
-    p = JobPrint(command, parallel, len(hosts), dirlog, args.timeout, args.verbose, max_len)
+    p = JobPrint(
+        command, parallel, len(hosts), dirlog, args.timeout, args.verbose, max_len
+    )
     p.start()
     for i in range(parallel):
         t = JobRun(i, dirlog=dirlog)
