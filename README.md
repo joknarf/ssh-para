@@ -51,6 +51,7 @@ options:
   -t TIMEOUT, --timeout TIMEOUT
                         timeout of each jobs
   -r, --resolve         resolve fqdn in SSHP_DOMAINS
+  -v, --verbose         verbose display (fqdn + line for last output)
 ```
 During run, use :
 * k: to kill ssh command held by a thread (but remote command can still be running on remote host)
@@ -65,6 +66,7 @@ Environment variables:
 * SSHP_SYM_BEG: Symbol character for begin decorative (default: "\ue0b4")
 * SSHP_SYM_END: Symbol character for end decorative (default: "\ue0b6")
 * SSHP_SYM_PROG: Symbol character for progress bar fill (default: "\u25a0")
+* SSHP_SYM_RES: Symbol character before ssh output line (default: "\u25b6") 
 
 # Example
 
