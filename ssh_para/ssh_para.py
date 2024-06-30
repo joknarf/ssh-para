@@ -622,21 +622,18 @@ class Job:
         """job to run on host init"""
         self.host = host
         self.command = command
-        self.status = JobStatus(host=host)
 
     def exec(self, th_id, dirlog):
         """run command on host using ssh"""
         runq.put(th_id)
-        self.status.start = time()
-        self.status.thread_id = th_id
         jobcmd = (
             ["ssh", self.host, "-T", "-n", "-o", "BatchMode=yes"]
             + SSH_OPTS.split()
             + self.command
         )
-        self.status.logfile = f"{dirlog}/{self.host}.out"
+        logfile = f"{dirlog}/{self.host}.out"
         if dirlog:
-            fdout = open(self.status.logfile, "w", encoding="UTF-8", buffering=1)
+            fdout = open(logfile, "w", encoding="UTF-8", buffering=1)
         else:
             fdout = sys.stdout
         p = Popen(
@@ -648,22 +645,28 @@ class Job:
             stdin=DEVNULL,
             close_fds=True,
         )
-        self.status.status = "RUNNING"
-        self.status.pid = p.pid
-        printq.put(deepcopy(self.status))
+        jstatus = JobStatus(
+            start = time(),
+            host = self.host,
+            thread_id= th_id,
+            logfile = logfile,
+            status = "RUNNING",
+            pid = p.pid,
+        )
+        printq.put(deepcopy(jstatus)) # python bug threading !!
         p.wait()
         fdout.close()
         endq.put(th_id)
-        self.status.exit = p.returncode
-        self.status.duration = time() - self.status.start
-        self.status.status = "SUCCESS" if self.status.exit == 0 else "FAILED"
-        printq.put(self.status)
+        jstatus.exit = p.returncode
+        jstatus.duration = time() - jstatus.start
+        jstatus.status = "SUCCESS" if jstatus.exit == 0 else "FAILED"
+        printq.put(jstatus)
         with open(f"{dirlog}/{self.host}.status", "w", encoding="UTF-8") as fstatus:
             print(
                 "EXIT CODE:",
-                self.status.exit,
-                self.status.status,
-                self.status.duration,
+                jstatus.exit,
+                jstatus.status,
+                jstatus.duration,
                 file=fstatus,
             )
 
