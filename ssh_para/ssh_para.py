@@ -786,7 +786,8 @@ def main():
     for i in range(parallel):
         t = JobRun(i, dirlog=dirlog)
         t.start()
-        sleep(args.delay)
+        if jobq.qsize() > 0:
+            sleep(args.delay)
     for i in threading.enumerate():
         if i != threading.current_thread() and i != p:
             i.join()
