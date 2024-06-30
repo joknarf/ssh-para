@@ -58,6 +58,13 @@ def parse_args():
     host_group = parser.add_mutually_exclusive_group()
     host_group.add_argument("-f", "--hostsfile", help="hosts list file")
     host_group.add_argument("-H", "--hosts", help="hosts list", nargs="+")
+    parser.add_argument(
+        "-D",
+        "--delay",
+        type=int,
+        default=0.3,
+        help="initial delay in seconds between ssh commands (default=0.3s)",
+    )
     parser.add_argument("-s", "--script", help="script to execute")
     parser.add_argument("-a", "--args", nargs="+", help="script arguments")
     parser.add_argument("-t", "--timeout", type=int, help="timeout of each job")
@@ -779,7 +786,7 @@ def main():
     for i in range(parallel):
         t = JobRun(i, dirlog=dirlog)
         t.start()
-        sleep(0.3)
+        sleep(args.delay)
     for i in threading.enumerate():
         if i != threading.current_thread() and i != p:
             i.join()

@@ -27,8 +27,8 @@ By default, `ssh-para` uses Nerd Fonts glyphs, modern terminals can now render t
 ssh-para -h
 ```
 ```
-usage: ssh-para [-h] [-p PARALLEL] [-j JOB] [-d DIRLOG] [-f HOSTSFILE | -H HOSTS [HOSTS ...]]
-                [-s SCRIPT] [-a ARGS [ARGS ...]] [-t TIMEOUT] [-r] [-v] -- [ssh_args ...]
+usage: ssh-para [-h] [-p PARALLEL] [-j JOB] [-d DIRLOG] [-f HOSTSFILE | -H HOSTS [HOSTS ...]] 
+                [-D DELAY] [-s SCRIPT] [-a ARGS [ARGS ...]] [-t TIMEOUT] [-r] [-v] -- [ssh_args ...]
 
 positional arguments:
   ssh_args
@@ -44,15 +44,16 @@ options:
                         hosts list file
   -H HOSTS [HOSTS ...], --hosts HOSTS [HOSTS ...]
                         hosts list
+  -D DELAY, --delay DELAY
+                        initial delay in seconds between ssh commands (default=0.3s)
   -s SCRIPT, --script SCRIPT
                         script to execute
   -a ARGS [ARGS ...], --args ARGS [ARGS ...]
                         script arguments
   -t TIMEOUT, --timeout TIMEOUT
-                        timeout of each jobs
+                        timeout of each job
   -r, --resolve         resolve fqdn in SSHP_DOMAINS
-  -v, --verbose         verbose display (fqdn + line for last output)
-```
+  -v, --verbose         verbose display (fqdn + line for last output)```
 During run, use :
 * k: to kill ssh command held by a thread (but remote command can still be running on remote host)
 * p: pause all remaining jobs to be scheduled
@@ -90,6 +91,6 @@ SSHP_DOMAINS="domain1.com domain2.com" ssh-para -r -H host1 host2 -- echo connec
 # Tips
 
 * if you are using ssh ProxyJump server to reach hosts, you may need to tweak the sshd MaxStartups setting on the ssh Proxy server with high parallelism
-  * when ssh-para starts, a delay of 0.3 seconds is applied between threads starting ssh jobs to avoid flooding.
+  * when ssh-para starts, a delay of 0.3 seconds is applied between threads starting ssh jobs to avoid flooding, (can be tweaked with -D <delay>)
 * if you are using remote connexion to launch the ssh-para, use `screen` to launch ssh-para, as if you lose your connection, ssh-para will be still running and you can re-attach to `screen` to continue follow-up.
 * Be very carefull when launching massive commands on servers... Always first test on non production.
