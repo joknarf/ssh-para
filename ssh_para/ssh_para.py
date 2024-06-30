@@ -9,23 +9,24 @@ import signal
 import threading
 import queue
 import re
+import curses
 from re import sub, escape
 from socket import gethostbyname_ex
 from shlex import quote
 from time import time, strftime, sleep
 from datetime import timedelta, datetime
-from subprocess import Popen
+from subprocess import Popen, DEVNULL
 from argparse import ArgumentParser
 from dataclasses import dataclass
-import curses
+from copy import deepcopy
 from colorama import Fore, Style, init
 
 os.environ["TERM"] = "xterm-256color"
 
-SYMBOL_END = os.environ.get("SSHP_SYM_BEG") or "\ue0b4"   # 
-SYMBOL_BEGIN = os.environ.get("SSHP_SYM_END") or "\ue0b6" # 
-SYMBOL_PROG = os.environ.get("SSHP_SYM_PROG") or "\u25a0" # ■
-SYMBOL_RES = os.environ.get("SSHP_SYM_RES") or "\u25b6"   # ▶ 
+SYMBOL_END = os.environ.get("SSHP_SYM_BEG") or "\ue0b4"  # 
+SYMBOL_BEGIN = os.environ.get("SSHP_SYM_END") or "\ue0b6"  # 
+SYMBOL_PROG = os.environ.get("SSHP_SYM_PROG") or "\u25a0"  # ■
+SYMBOL_RES = os.environ.get("SSHP_SYM_RES") or "\u25b6"  # ▶
 DNS_DOMAINS = os.environ.get("SSHP_DOMAINS") or ""
 SSH_OPTS = os.environ.get("SSHP_OPTS") or ""
 
@@ -233,7 +234,7 @@ class JobStatus:
     host: str = ""
     duration: int = 0
     pid: int = -1
-    exit: int|None = None
+    exit: int | None = None
     logfile: str = ""
     log: str = ""
     thread_id: int = -1
@@ -336,10 +337,10 @@ class JobPrint(threading.Thread):
                 jstatus = None
             th_id = None
             if jstatus:
-                if not jstatus.fdlog:  # RUNNING
+                if not jstatus.fdlog:  # start RUNNING
                     jstatus.fdlog = open(jstatus.logfile, "rb")
                 jstatus.log = last_line(jstatus.fdlog)
-                if jstatus.exit is not None:
+                if jstatus.exit is not None:  # FINISHED
                     jstatus.fdlog.close()
                     jstatus.fdlog = 0
                     self.job_status.append(jstatus)
@@ -350,8 +351,7 @@ class JobPrint(threading.Thread):
                     if jstatus.exit == 255:
                         nbsshjobs -= 1
                         jobsdur -= jstatus.duration
-                th_id = jstatus.thread_id
-                self.th_status[th_id] = jstatus
+                self.th_status[jstatus.thread_id] = jstatus
                 if not self.stdscr:
                     print(
                         f"{strftime('%X')}: {jstatus.status} {int(runq.qsize())}: {jstatus.host}"
@@ -424,7 +424,6 @@ class JobPrint(threading.Thread):
     def display_curses(self, status_id, total_dur, jobsdur, nbsshjobs):
         """display threads statuses"""
         nbend = endq.qsize()
-        nbrun = runq.qsize() - nbend
         last_start = 0
         avgjobdur = 0
         curses.update_lines_cols()
@@ -433,6 +432,7 @@ class JobPrint(threading.Thread):
             avgjobdur = jobsdur / nbsshjobs
         inter = self.verbose + 1
         line_num = 3
+        nbrun = 0
         for jstatus in self.th_status:
             if jstatus.fdlog and jstatus.thread_id != status_id:
                 jstatus.log = last_line(jstatus.fdlog)
@@ -440,11 +440,12 @@ class JobPrint(threading.Thread):
                 duration = time() - jstatus.start
                 self.check_timeout(jstatus.thread_id, duration)
                 last_start = max(last_start, jstatus.start)
+                nbrun += 1
+                if curses.LINES > line_num:
+                    self.print_job(line_num, jstatus, duration, avgjobdur)
+                    line_num += inter
             else:
                 duration = jstatus.duration
-            if curses.LINES > line_num and jstatus.status == "RUNNING":
-                self.print_job(line_num, jstatus, duration, avgjobdur)
-                line_num += inter
         addstrc(self.stdscr, line_num, 0, "")
         if nbsshjobs:
             last_dur = time() - last_start
@@ -529,7 +530,7 @@ class JobPrint(threading.Thread):
         addstr(self.stdscr, curses.LINES - 1, 0, "")
         inter = self.verbose + 1
         for jstatus in self.job_status[::-1]:
-            if curses.LINES < line_num+2:
+            if curses.LINES < line_num + 2:
                 break
             addstr(self.stdscr, line_num, 0, "")
             self.print_status(jstatus.status, jstatus.duration)
@@ -543,7 +544,7 @@ class JobPrint(threading.Thread):
                     f"{short_host(jstatus.host):{self.maxhostlen}} {SYMBOL_RES} ",
                     curses.color_pair(self.COLOR_HOST),
                 )
-                addstrc(self.stdscr, str(jstatus.log if jstatus.log.isprintable else ""))
+                addstrc(self.stdscr, jstatus.log)
             line_num += inter
         self.stdscr.clrtobot()
 
@@ -637,11 +638,12 @@ class Job:
             encoding="UTF-8",
             stdout=fdout,
             stderr=fdout,
+            stdin=DEVNULL,
             close_fds=True,
         )
         self.status.status = "RUNNING"
         self.status.pid = p.pid
-        printq.put(self.status)
+        printq.put(deepcopy(self.status))
         p.wait()
         fdout.close()
         endq.put(th_id)
@@ -667,7 +669,6 @@ class JobRun(threading.Thread):
     def __init__(self, thread_id, dirlog=""):
         """constructor"""
         self.thread_id = thread_id
-        self.th_id = str(thread_id).zfill(2)
         self.dirlog = dirlog
         super().__init__()
 
