@@ -241,7 +241,7 @@ class JobStatus:
     host: str = ""
     duration: int = 0
     pid: int = -1
-    exit: int | None = None
+    exit: int = None
     logfile: str = ""
     log: str = ""
     thread_id: int = -1
