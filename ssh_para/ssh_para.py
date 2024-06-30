@@ -653,14 +653,14 @@ class Job:
             status = "RUNNING",
             pid = p.pid,
         )
-        printq.put(deepcopy(jstatus)) # python bug threading !!
+        printq.put(deepcopy(jstatus))
         p.wait()
         fdout.close()
         endq.put(th_id)
         jstatus.exit = p.returncode
         jstatus.duration = time() - jstatus.start
         jstatus.status = "SUCCESS" if jstatus.exit == 0 else "FAILED"
-        printq.put(jstatus)
+        printq.put(deepcopy(jstatus))
         with open(f"{dirlog}/{self.host}.status", "w", encoding="UTF-8") as fstatus:
             print(
                 "EXIT CODE:",
