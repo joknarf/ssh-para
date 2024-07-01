@@ -31,8 +31,6 @@ DNS_DOMAINS = os.environ.get("SSHP_DOMAINS") or ""
 SSH_OPTS = os.environ.get("SSHP_OPTS") or ""
 
 jobq = queue.Queue()
-runq = queue.SimpleQueue()
-endq = queue.SimpleQueue()
 printq = queue.SimpleQueue()
 pauseq = queue.Queue()
 
@@ -348,7 +346,7 @@ class JobPrint(threading.Thread):
                 self.th_status[jstatus.thread_id] = jstatus
                 if not self.stdscr:
                     print(
-                        f"{strftime('%X')}: {jstatus.status} {int(runq.qsize())}: {jstatus.host}"
+                        f"{strftime('%X')}: {jstatus.status} {len(self.job_status)}: {jstatus.host}"
                     )
             total_dur = tdelta(seconds=round(time() - self.startsec))
             if self.stdscr:
@@ -417,7 +415,7 @@ class JobPrint(threading.Thread):
 
     def display_curses(self, status_id, total_dur, jobsdur, nbsshjobs):
         """display threads statuses"""
-        nbend = endq.qsize()
+        nbend = len(self.job_status)
         last_start = 0
         avgjobdur = 0
         curses.update_lines_cols()
@@ -456,7 +454,7 @@ class JobPrint(threading.Thread):
             0,
             0,
             [
-                f"running: {nbrun} {jobslabel}: {self.nbjobs-nbend-nbrun}",
+                f"running: {nbrun:>2} {jobslabel}: {self.nbjobs-nbend-nbrun}",
                 f"done: {nbend}/{self.nbjobs}",
                 f"failed: {self.nbfailed}",
                 f"duration: {total_dur}",
@@ -550,8 +548,6 @@ class JobPrint(threading.Thread):
                 job.status.status = "ABORTED"
                 job.status.exit = 256
                 self.job_status.append(job.status)
-                runq.put(True)
-                endq.put(True)
                 jobq.task_done()
             except queue.Empty:
                 break
@@ -612,7 +608,6 @@ class Job:
 
     def exec(self, th_id, dirlog):
         """run command on host using ssh"""
-        runq.put(th_id)
         self.status.start = time()
         self.status.thread_id = th_id
         jobcmd = (
@@ -639,7 +634,6 @@ class Job:
         printq.put(deepcopy(self.status))
         p.wait()
         fdout.close()
-        endq.put(th_id)
         self.status.exit = p.returncode
         self.status.duration = time() - self.status.start
         self.status.status = "SUCCESS" if self.status.exit == 0 else "FAILED"
