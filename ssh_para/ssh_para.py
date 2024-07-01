@@ -291,6 +291,7 @@ class JobPrint(threading.Thread):
         self.timeout = timeout
         self.verbose = verbose
         self.maxhostlen = maxhostlen
+        self.killedpid = {}
         home = os.path.expanduser("~/")
         self.pdirlog = sub(rf"^{escape(home)}", "~/", self.dirlog)
         if sys.stdout.isatty():
@@ -353,7 +354,9 @@ class JobPrint(threading.Thread):
                     self.job_status.append(jstatus)
                     nbsshjobs += 1
                     jobsdur += jstatus.duration
-                if jstatus.status in ["FAILED", "KILLED", "TIMEOUT"]:
+                if jstatus.status in ["FAILED", "TIMEOUT"]:
+                    if jstatus.pid in self.killedpid:
+                        jstatus.status = self.killedpid[jstatus.pid]
                     self.nbfailed += 1
                     if jstatus.exit == 255:
                         nbsshjobs -= 1
@@ -513,8 +516,7 @@ class JobPrint(threading.Thread):
                 curses.noecho()
         try:
             os.kill(self.th_status[th_kill].pid, 15)
-            sleep(0.1)
-            self.th_status[th_kill].status = status
+            self.killedpid[self.th_status[th_kill].pid] = status
         except ProcessLookupError:
             pass
 
