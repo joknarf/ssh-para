@@ -31,11 +31,10 @@ DNS_DOMAINS = os.environ.get("SSHP_DOMAINS") or ""
 SSH_OPTS = os.environ.get("SSHP_OPTS") or ""
 
 jobq = queue.Queue()
-runq = queue.Queue()
-endq = queue.Queue()
-printq = queue.Queue()
+runq = queue.SimpleQueue()
+endq = queue.SimpleQueue()
+printq = queue.SimpleQueue()
 pauseq = queue.Queue()
-resumeq = queue.Queue()
 
 
 def parse_args():
@@ -128,21 +127,6 @@ def addstrc(stdscr, *args, **kwargs):
     """curses addstr and clear eol"""
     addstr(stdscr, *args, **kwargs)
     stdscr.clrtoeol()
-
-
-def emptyq(q):
-    """get all queue elements"""
-    while True:
-        try:
-            q.get(block=False)
-        except queue.Empty:
-            break
-
-
-def fillq(q, nb, value=True):
-    """fill queue with nb value"""
-    for _ in range(nb):
-        q.put(value)
 
 
 def tdelta(*args, **kwargs):
@@ -498,9 +482,9 @@ class JobPrint(threading.Thread):
             self.abort_jobs()
         if ch == 107:  # k kill
             self.kill()
-        if ch == 112 and not self.paused:  # p pause
+        if ch == 112:  # p pause
             self.pause()
-        if ch == 114 and self.paused:  # r resume
+        if ch == 114:  # r resume
             self.resume()
 
     def kill(self, status="KILLED", th_kill=None):
@@ -523,16 +507,15 @@ class JobPrint(threading.Thread):
     def pause(self):
         """pause JobRun threads"""
         if not self.paused:
-            emptyq(resumeq)
-            fillq(pauseq, self.nbthreads)
             self.paused = True
+            pauseq.put(True)
 
     def resume(self):
         """resume JobRun threads"""
         if self.paused:
-            emptyq(pauseq)
-            fillq(resumeq, self.nbthreads)
             self.paused = False
+            pauseq.get()
+            pauseq.task_done()
 
     def print_finished(self, line_num):
         """display finished jobs"""
@@ -569,6 +552,7 @@ class JobPrint(threading.Thread):
                 self.job_status.append(job.status)
                 runq.put(True)
                 endq.put(True)
+                jobq.task_done()
             except queue.Empty:
                 break
             self.aborted.append(job.host)
@@ -659,7 +643,7 @@ class Job:
         self.status.exit = p.returncode
         self.status.duration = time() - self.status.start
         self.status.status = "SUCCESS" if self.status.exit == 0 else "FAILED"
-        printq.put(self.status)
+        printq.put(deepcopy(self.status))
         with open(f"{dirlog}/{self.host}.status", "w", encoding="UTF-8") as fstatus:
             print(
                 "EXIT CODE:",
@@ -684,16 +668,13 @@ class JobRun(threading.Thread):
     def run(self):
         """schedule Jobs / pause / resume"""
         while True:
-            try:
-                if pauseq.get(block=False):
-                    resumeq.get()
-            except queue.Empty:
-                pass
+            pauseq.join()
             try:
                 job: Job = jobq.get(block=False)
             except queue.Empty:
                 break
             job.exec(self.thread_id, self.dirlog)
+            jobq.task_done()
 
 
 def script_command(script, args):
@@ -786,13 +767,13 @@ def main():
     )
     p.start()
     for i in range(parallel):
+        if jobq.qsize() == 0:
+            break
         t = JobRun(i, dirlog=dirlog)
         t.start()
-        if jobq.qsize() > 0:
-            sleep(args.delay)
-    for i in threading.enumerate():
-        if i != threading.current_thread() and i != p:
-            i.join()
+        sleep(args.delay)
+
+    jobq.join()
     exit_code = p.join()
     sys.exit(exit_code)
 
