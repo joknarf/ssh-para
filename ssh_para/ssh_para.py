@@ -31,7 +31,7 @@ DNS_DOMAINS = os.environ.get("SSHP_DOMAINS") or ""
 SSH_OPTS = os.environ.get("SSHP_OPTS") or ""
 
 jobq = queue.Queue()
-printq = queue.SimpleQueue()
+printq = queue.Queue()
 pauseq = queue.Queue()
 
 
