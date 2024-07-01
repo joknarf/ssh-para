@@ -333,16 +333,16 @@ class JobPrint(threading.Thread):
                 if jstatus.exit is not None:  # FINISHED
                     jstatus.fdlog.close()
                     jstatus.fdlog = 0
-                    self.job_status.append(jstatus)
                     nbsshjobs += 1
                     jobsdur += jstatus.duration
-                if jstatus.status in ["FAILED", "TIMEOUT"]:
-                    if jstatus.pid in self.killedpid:
-                        jstatus.status = self.killedpid[jstatus.pid]
-                    self.nbfailed += 1
-                    if jstatus.exit == 255:
-                        nbsshjobs -= 1
-                        jobsdur -= jstatus.duration
+                    if jstatus.status == "FAILED":
+                        self.nbfailed += 1
+                        if jstatus.pid in self.killedpid:
+                            jstatus.status = self.killedpid[jstatus.pid]
+                        if jstatus.exit == 255:
+                            nbsshjobs -= 1
+                            jobsdur -= jstatus.duration
+                    self.job_status.append(jstatus)
                 self.th_status[jstatus.thread_id] = jstatus
                 if not self.stdscr:
                     print(
@@ -433,7 +433,7 @@ class JobPrint(threading.Thread):
                 self.check_timeout(jstatus.thread_id, duration)
                 last_start = max(last_start, jstatus.start)
                 nbrun += 1
-                if curses.LINES > line_num:
+                if curses.LINES > line_num+1:
                     self.print_job(line_num, jstatus, duration, avgjobdur)
                     line_num += inter
             else:
@@ -620,7 +620,7 @@ class Job:
             fdout = open(self.status.logfile, "w", encoding="UTF-8", buffering=1)
         else:
             fdout = sys.stdout
-        p = Popen(
+        pssh = Popen(
             jobcmd,
             bufsize=0,
             encoding="UTF-8",
@@ -630,14 +630,14 @@ class Job:
             close_fds=True,
         )
         self.status.status = "RUNNING"
-        self.status.pid = p.pid
-        printq.put(deepcopy(self.status))
-        p.wait()
+        self.status.pid = pssh.pid
+        printq.put(deepcopy(self.status)) # deepcopy to fix pb with object in queue
+        pssh.wait()
         fdout.close()
-        self.status.exit = p.returncode
+        self.status.exit = pssh.returncode
         self.status.duration = time() - self.status.start
-        self.status.status = "SUCCESS" if self.status.exit == 0 else "FAILED"
-        printq.put(deepcopy(self.status))
+        self.status.status = "SUCCESS" if pssh.returncode == 0 else "FAILED"
+        printq.put(deepcopy(self.status)) # deepcopy to fix pb with object in queue
         with open(f"{dirlog}/{self.host}.status", "w", encoding="UTF-8") as fstatus:
             print(
                 "EXIT CODE:",
