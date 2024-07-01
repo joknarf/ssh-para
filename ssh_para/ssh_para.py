@@ -433,7 +433,7 @@ class JobPrint(threading.Thread):
                 self.check_timeout(jstatus.thread_id, duration)
                 last_start = max(last_start, jstatus.start)
                 nbrun += 1
-                if curses.LINES > line_num+1:
+                if curses.LINES > line_num + 1:
                     self.print_job(line_num, jstatus, duration, avgjobdur)
                     line_num += inter
             else:
@@ -631,13 +631,13 @@ class Job:
         )
         self.status.status = "RUNNING"
         self.status.pid = pssh.pid
-        printq.put(deepcopy(self.status)) # deepcopy to fix pb with object in queue
+        printq.put(deepcopy(self.status))  # deepcopy to fix pb with object in queue
         pssh.wait()
         fdout.close()
         self.status.exit = pssh.returncode
         self.status.duration = time() - self.status.start
         self.status.status = "SUCCESS" if pssh.returncode == 0 else "FAILED"
-        printq.put(deepcopy(self.status)) # deepcopy to fix pb with object in queue
+        printq.put(deepcopy(self.status))  # deepcopy to fix pb with object in queue
         with open(f"{dirlog}/{self.host}.status", "w", encoding="UTF-8") as fstatus:
             print(
                 "EXIT CODE:",
