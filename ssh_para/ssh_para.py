@@ -61,7 +61,7 @@ def parse_args():
     parser.add_argument(
         "-D",
         "--delay",
-        type=int,
+        type=float,
         default=0.3,
         help="initial delay in seconds between ssh commands (default=0.3s)",
     )
