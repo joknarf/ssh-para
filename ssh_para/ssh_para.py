@@ -247,6 +247,7 @@ class JobStatus:
     status: str = "IDLE"
     start: str = ""
     host: str = ""
+    shorthost: str = ""
     duration: int = 0
     pid: int = -1
     exit: int = None
@@ -434,7 +435,7 @@ class JobPrint(threading.Thread):
         else:
             addstr(
                 self.stdscr,
-                f"{short_host(jstatus.host):{self.maxhostlen}} {SYMBOL_RES} ",
+                f"{jstatus.shorthost:{self.maxhostlen}} {SYMBOL_RES} ",
                 curses.color_pair(self.COLOR_HOST),
             )
             addstrc(self.stdscr, jstatus.log)
@@ -557,7 +558,7 @@ class JobPrint(threading.Thread):
             else:
                 addstr(
                     self.stdscr,
-                    f"{short_host(jstatus.host):{self.maxhostlen}} {SYMBOL_RES} ",
+                    f"{jstatus.shorthost:{self.maxhostlen}} {SYMBOL_RES} ",
                     curses.color_pair(self.COLOR_HOST),
                 )
                 addstrc(self.stdscr, jstatus.log)
@@ -630,7 +631,7 @@ class Job:
         """job to run on host init"""
         self.host = host
         self.command = command
-        self.status = JobStatus(host=host)
+        self.status = JobStatus(host=host, shorthost=short_host(host))
 
     def exec(self, th_id, dirlog):
         """run command on host using ssh"""
@@ -769,12 +770,12 @@ def main():
         command = args.ssh_args
     hosts = get_hosts(args.hostsfile, args.hosts)
     max_len = 0
-    for host in hosts:
-        max_len = max(max_len, len(short_host(host)))
     if args.resolve:
         print("Notice: ssh-para: Resolving hosts...", file=sys.stderr)
         hosts = resolve_hosts(hosts, DNS_DOMAINS.split())
         print("Notice: ssh-para: Resolve done", file=sys.stderr)
+    for host in hosts:
+        max_len = max(max_len, len(short_host(host)))
     if not args.ssh_args:
         print("ERROR: ssh-para: No ssh command supplied", file=sys.stderr)
         sys.exit(1)
