@@ -10,6 +10,7 @@ import threading
 import queue
 import re
 import curses
+from glob import glob
 from re import sub, escape
 from socket import gethostbyname_ex, gethostbyaddr, inet_aton
 from shlex import quote
@@ -75,7 +76,8 @@ def parse_args():
         action="store_true",
         help="verbose display (fqdn + line for last output)",
     )
-    parser.add_argument("-l", "--ls", action="store_true", help="list ssh-para results/log directories")
+    parser.add_argument("-l", "--list", action="store_true", help="list ssh-para results/log directories")
+    parser.add_argument("-L", "--logs", nargs="*", help="get latest host logs")
     parser.add_argument("ssh_args", nargs="*")
     return parser.parse_args()
 
@@ -201,7 +203,7 @@ def short_host(host):
     """remove dns domain from fqdn"""
     if is_ip(host):
         return host
-    return re.sub(r"\..*", "", host)
+    return host.split(".")[0]
 
 
 class Segment:
@@ -709,7 +711,7 @@ class Job:
         self.status.duration = time() - self.status.start
         self.status.status = "SUCCESS" if pssh.returncode == 0 else "FAILED"
         printq.put(deepcopy(self.status))  # deepcopy to fix pb with object in queue
-        with open(f"{dirlog}/{self.host}.status", "w", encoding="UTF-8") as fstatus:
+        with open(f"{dirlog}/{self.host}.{self.status.status.lower()}", "w", encoding="UTF-8") as fstatus:
             print(
                 "EXIT CODE:",
                 self.status.exit,
@@ -810,7 +812,7 @@ def readfile(file):
         return None
     return text.strip()
 
-def log_ls(dirlog, job):
+def log_results(dirlog, job):
     if job:
         dirlog = f"{dirlog}/{job}"
     try:
@@ -826,34 +828,70 @@ def log_ls(dirlog, job):
             print(f"{hometilde(dirlog)}/{dir:10}:", result, "Command:", command)
     sys.exit(0)
 
+def log_content(dirlog, wildcard):
+    """print log file content in dirlog matching wildcard"""
+    files = glob(f"{dirlog}/{wildcard}")
+    files.sort()
+    for logfile in files:
+        if wildcard.endswith(".success") or wildcard.endswith(".failed"):
+            logfile = ".".join(logfile.split(".")[:-1]) + ".out"
+        prefix = logfile.split("/")[-1]
+        if not prefix.startswith("ssh-para"):
+            prefix = short_host(prefix[:-4])
+        log = readfile(logfile)
+        if log:
+            log = log.splitlines()
+            for l in log:
+                print(f"{prefix}:", l.rstrip())
 
-def make_logdir(dirlog, job):
-    """create log directory"""
-    latest = f"{dirlog}/latest"
+
+def log_contents(wildcards, dirlog, job):
+    """print logs content according to wildcards *.out *.success..."""
     if job:
         dirlog += f"/{job}"
-    dirlog += "/" + str(int(time()))
-    try:
-        if not os.path.isdir(dirlog):
-            os.makedirs(dirlog)
-    except OSError:
-        print(f"Error: ssh-para: cannot create log directory: {dirlog}")
-        sys.exit(1)
+    latest = f"{dirlog}/latest"
+    for wildcard in wildcards:
+        log_content(latest, wildcard)
+    sys.exit(0)
+
+
+def make_latest(dirlog, dirlogtime):
+    """ make symlink to last log directory"""
+    latest = f"{dirlog}/latest"
     try:
         if os.path.exists(latest):
             os.unlink(latest)
-        os.symlink(dirlog, latest)
+        os.symlink(dirlogtime, latest)
     except OSError:
         pass
-    return dirlog
+
+
+def make_logdir(dirlog, job):
+    """create log directory"""
+    jobdirlog = dirlog
+    if job:
+        jobdirlog += f"/{job}"
+    dirlogtime = jobdirlog + "/" + str(int(time()))
+    try:
+        if not os.path.isdir(dirlogtime):
+            os.makedirs(dirlogtime)
+    except OSError:
+        print(f"Error: ssh-para: cannot create log directory: {dirlogtime}")
+        sys.exit(1)
+    make_latest(dirlog, dirlogtime)
+    if job:
+        make_latest(jobdirlog, dirlogtime)
+    return dirlogtime
 
 
 def main():
     """argument read / read hosts file / prepare commands / launch jobs"""
     init(autoreset=True)
     args = parse_args()
-    if args.ls:
-        log_ls(args.dirlog, args.job)
+    if args.list:
+        log_results(args.dirlog, args.job)
+    if args.logs:
+        log_contents(args.logs, args.dirlog, args.job)
     if args.script:
         args.ssh_args.append(script_command(args.script, args.args))
         command = [args.script]
@@ -867,12 +905,12 @@ def main():
     hosts = get_hosts(args.hostsfile, args.hosts)
     dirlog = make_logdir(args.dirlog, args.job)
     printfile(f"{dirlog}/ssh-para.command", " ".join(command))
-    printfile(f"{dirlog}/ssh-para.hosts", "\n".join(hosts))
+    printfile(f"{dirlog}/ssh-para.hosts_input", "\n".join(hosts))
     if args.resolve:
         print("Notice: ssh-para: Resolving hosts...", file=sys.stderr)
         hosts = resolve_hosts(hosts, DNS_DOMAINS.split())
         print("Notice: ssh-para: Resolve done", file=sys.stderr)
-        printfile(f"{dirlog}/ssh-para.hosts_resolved", "\n".join(hosts))
+    printfile(f"{dirlog}/ssh-para.hosts", "\n".join(hosts))
     max_len = 0
     for host in hosts:
         max_len = max(max_len, len(short_host(host)))
