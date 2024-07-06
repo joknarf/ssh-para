@@ -11,7 +11,7 @@ import queue
 import re
 import curses
 from re import sub, escape
-from socket import gethostbyname_ex
+from socket import gethostbyname_ex, gethostbyaddr, inet_aton
 from shlex import quote
 from time import time, strftime, sleep
 from datetime import timedelta, datetime
@@ -87,7 +87,7 @@ def sigint_handler(*args):
     os._exit(1)
 
 
-def resolve_host(host):
+def resolve_hostname(host):
     """try get fqdn from DNS"""
     try:
         res = gethostbyname_ex(host)
@@ -98,19 +98,43 @@ def resolve_host(host):
 
 def resolve_in_domains(host, domains):
     """try get fqdn from short hostname in domains"""
-    fqdn = resolve_host(host)
+    fqdn = resolve_hostname(host)
     if fqdn:
         return fqdn
     for domain in domains:
-        fqdn = resolve_host(f"{host}.{domain}")
+        fqdn = resolve_hostname(f"{host}.{domain}")
         if fqdn:
             return fqdn
     return host
 
+def resolve_ip(ip):
+    """try resolve hostname by reverse dns query on ip addr"""
+    try:
+        host = gethostbyaddr(ip)
+    except OSError:
+        return ip
+    return host[0]
+
+
+def is_ip(host):
+    """determine if host is valid ip"""
+    try:
+        inet_aton(host)
+        return True
+    except OSError:
+        return False
+
+
+def resolve(host, domains):
+    """resolve hostname from ip / hostname"""
+    if is_ip(host):
+        return resolve_ip(host)
+    return resolve_in_domains(host, domains)
+
 
 def resolve_hosts(hosts, domains):
     """try resolve hosts to get fqdn"""
-    return [resolve_in_domains(host, domains) for host in hosts]
+    return [resolve(host, domains) for host in hosts]
 
 
 def addstr(stdscr, *args, **kwargs):
@@ -168,6 +192,8 @@ def last_line(fd, maxline=1000):
 
 def short_host(host):
     """remove dns domain from fqdn"""
+    if is_ip(host):
+        return host
     return re.sub(r"\..*", "", host)
 
 
