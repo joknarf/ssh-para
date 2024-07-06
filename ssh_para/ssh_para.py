@@ -75,7 +75,7 @@ def parse_args():
         action="store_true",
         help="verbose display (fqdn + line for last output)",
     )
-    parser.add_argument("-l", "--ls", action="store_true", help="list ssh-para logs")
+    parser.add_argument("-l", "--ls", action="store_true", help="list ssh-para results/log directories")
     parser.add_argument("ssh_args", nargs="*")
     return parser.parse_args()
 

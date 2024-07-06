@@ -54,6 +54,8 @@ options:
                         timeout of each job
   -r, --resolve         resolve fqdn in SSHP_DOMAINS
   -v, --verbose         verbose display (fqdn + line for last output)```
+  -l, --ls              list ssh-para results/log directories
+  
 During run, use :
 * k: to kill ssh command held by a thread (but remote command can still be running on remote host)
 * p: pause all remaining jobs to be scheduled
