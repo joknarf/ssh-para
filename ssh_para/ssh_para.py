@@ -92,6 +92,7 @@ def resolve_hostname(host):
     try:
         res = gethostbyname_ex(host)
     except OSError:
+        print(f"Warning: ssh-para: cannot resolve {host}", file=sys.stderr)
         return None
     return res[0]
 
@@ -112,6 +113,7 @@ def resolve_ip(ip):
     try:
         host = gethostbyaddr(ip)
     except OSError:
+        print(f"Warning: ssh-para: cannot resolve {ip}", file=sys.stderr)
         return ip
     return host[0]
 

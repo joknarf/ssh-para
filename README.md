@@ -90,7 +90,11 @@ SSHP_DOMAINS="domain1.com domain2.com" ssh-para -r -H host1 host2 -- echo connec
 
 # Tips
 
+* ssh-para uses ssh BatchMode, no interactive password/passphrase will be asked, so you need to have a ssh authorized key to connect to servers (ssh-agent...)
+* you need to configure your ssh for StrictHostKeyChecking/UserKnownHostsFile if you need to connect to unknown servers
+* to connect as different user use ssh -l option or define everything in your ssh config file
+  * *you can use user@host as hostname but not if you need to resolve host (-r/--resolve)*
 * if you are using ssh ProxyJump server to reach hosts, you may need to tweak the sshd MaxStartups setting on the ssh Proxy server with high parallelism
-  * when ssh-para starts, a delay of 0.3 seconds is applied between threads starting ssh jobs to avoid flooding, (can be tweaked with -D <delay>)
+  * *when ssh-para starts, a delay of 0.3 seconds is applied between threads starting ssh jobs to avoid flooding, (can be tweaked with -D <delay>)*
 * if you are using remote connexion to launch the ssh-para, use `screen` to launch ssh-para, as if you lose your connection, ssh-para will be still running and you can re-attach to `screen` to continue follow-up.
 * Be very carefull when launching massive commands on servers... Always first test on non production.
