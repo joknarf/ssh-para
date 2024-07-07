@@ -50,6 +50,7 @@ requires = ["setuptools >= 61.0", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
+version_file = "ssh_para/version.py"
 
 [project.scripts]
 ssh-para = "ssh_para.ssh_para:main"
