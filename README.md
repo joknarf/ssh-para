@@ -27,8 +27,12 @@ By default, `ssh-para` uses Nerd Fonts glyphs, modern terminals can now render t
 ssh-para -h
 ```
 ```
-usage: ssh-para [-h] [-p PARALLEL] [-j JOB] [-d DIRLOG] [-f HOSTSFILE | -H HOSTS [HOSTS ...]] 
-                [-D DELAY] [-s SCRIPT] [-a ARGS [ARGS ...]] [-t TIMEOUT] [-r] [-v] -- [ssh_args ...]
+usage: ssh_para.py [-h] [-p PARALLEL] [-j JOB] [-d DIRLOG] [-f HOSTSFILE | -H HOSTS [HOSTS ...]] 
+                   [-D DELAY] [-s SCRIPT] [-a ARGS [ARGS ...]] [-t TIMEOUT] [-r] [-v] [-l]
+                   [-L [LOGS ...]] [-m MAXDOTS] [-V]
+                   [ssh_args ...]
+
+ssh-para vX.X.X
 
 positional arguments:
   ssh_args
@@ -53,9 +57,19 @@ options:
   -t TIMEOUT, --timeout TIMEOUT
                         timeout of each job
   -r, --resolve         resolve fqdn in SSHP_DOMAINS
-  -v, --verbose         verbose display (fqdn + line for last output)```
-  -l, --ls              list ssh-para results/log directories
-  
+  -v, --verbose         verbose display (fqdn + line for last output)
+  -l, --list            list ssh-para results/log directories
+  -L [LOGS ...], --logs [LOGS ...]
+                        get latest ssh-para run logs 
+                        -L=*         : all logs
+                        -L=*.out     : all hosts outputs 
+                        -L=*.success : output of success hosts
+                        -L=*.failed  : output of failed hosts
+                        -L=<host>.*  : logs for host  
+  -m MAXDOTS, --maxdots MAXDOTS
+                        hostname domain displaylevel (default:0 => short hostname)
+  -V, --version         ssh-para version
+```    
 During run, use :
 * k: to kill ssh command held by a thread (but remote command can still be running on remote host)
 * p: pause all remaining jobs to be scheduled
