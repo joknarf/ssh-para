@@ -79,11 +79,12 @@ def parse_args():
     )
     parser.add_argument("-l", "--list", action="store_true", help="list ssh-para results/log directories")
     parser.add_argument("-L", "--logs", nargs="*", help="""get latest ssh-para run logs
--L=*         : all logs
--L=*.out     : all hosts outputs 
--L=*.success : output of success hosts
--L=*.failed  : output of failed hosts
--L=<host>.*  : logs for host  
+-L*         : all logs
+-L*.out     : all hosts outputs
+-L*.success : output of success hosts
+-L*.failed  : output of failed hosts
+-L<host>.*  : logs for host
+-L <logid>/* : logs for logid (from ssh-para --list)
 """)
     parser.add_argument("-m", "--maxdots", type=int, help="hostname domain displaylevel (default:0 => short hostname)")
     parser.add_argument("-V", "--version", action="store_true", help="ssh-para version")
@@ -661,7 +662,7 @@ class JobPrint(threading.Thread):
             print_tee(" ", jstatus.log, file=global_log)
         print_tee("command:", self.command, file=global_log)
         print_tee("log directory:", self.pdirlog, file=global_log)
-        start = strftime('%X', datetime.fromtimestamp(self.startsec).timetuple())
+        start = datetime.fromtimestamp(self.startsec).strftime("%Y-%m-%d %H:%M:%S")
         print_tee(
             f"{nbrun}/{self.nbjobs} jobs run : Begin: {start}",
             f"End: {end} Duration: {total_dur}",
@@ -854,14 +855,43 @@ def log_content(dirlog, wildcard):
                 print(f"{prefix}:", l.rstrip())
             print()
 
+def isdir(dir):
+    try:
+        if os.path.isdir(dir):
+            return True
+    except OSError:
+        return False
+    return False
+
+
+def get_latest_dir(dirlog):
+    try:
+        dirs = glob(f"{dirlog}/[0-9]*")
+    except OSError:
+        print(f"Error: ssh-para: no log directory found in {dirlog}", file=sys.stderr)
+        sys.exit(1)
+    dirs.sort()
+    for dir in dirs[::-1]:
+        if isdir(dir):
+            return dir
+    print(f"no log directory found in {dirlog}")
+    sys.exit(1)
+
 
 def log_contents(wildcards, dirlog, job):
     """print logs content according to wildcards *.out *.success..."""
     if job:
         dirlog += f"/{job}"
-    latest = f"{dirlog}/latest"
     for wildcard in wildcards:
-        log_content(latest, wildcard)
+        if "/" in wildcard:
+            logdir = dirlog + "/" + wildcard.split("/")[0]
+            wildcard = wildcard.split("/")[1]
+        else:
+            logdir = get_latest_dir(dirlog)
+        if not isdir(logdir):
+            print(f"Notice: ssh-para: cannot access directory {logdir}")
+            continue
+        log_content(logdir, wildcard)
     sys.exit(0)
 
 
