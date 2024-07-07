@@ -16,7 +16,7 @@ from shlex import quote
 from time import time, strftime, sleep
 from datetime import timedelta, datetime
 from subprocess import Popen, DEVNULL
-from argparse import ArgumentParser
+from argparse import ArgumentParser, RawTextHelpFormatter
 from dataclasses import dataclass
 from copy import deepcopy
 from colorama import Fore, Style, init
@@ -42,7 +42,7 @@ def parse_args():
     """argument parse"""
     if len(sys.argv) == 1:
         sys.argv.append("-h")
-    parser = ArgumentParser()
+    parser = ArgumentParser(description=f"ssh-para v{__version__}", formatter_class=RawTextHelpFormatter)
     parser.add_argument(
         "-p", "--parallel", type=int, help="parallelism (default 4)", default=4
     )
@@ -78,8 +78,14 @@ def parse_args():
         help="verbose display (fqdn + line for last output)",
     )
     parser.add_argument("-l", "--list", action="store_true", help="list ssh-para results/log directories")
-    parser.add_argument("-L", "--logs", nargs="*", help="get latest host logs")
-    parser.add_argument("-m", "--maxdots", type=int, help="canonical hostname level (default:1)")
+    parser.add_argument("-L", "--logs", nargs="*", help="""get latest ssh-para run logs
+-L=*         : all logs
+-L=*.out     : all hosts outputs 
+-L=*.success : output of success hosts
+-L=*.failed  : output of failed hosts
+-L=<host>.*  : logs for host  
+""")
+    parser.add_argument("-m", "--maxdots", type=int, help="hostname domain displaylevel (default:0 => short hostname)")
     parser.add_argument("-V", "--version", action="store_true", help="ssh-para version")
     parser.add_argument("ssh_args", nargs="*")
     return parser.parse_args()
