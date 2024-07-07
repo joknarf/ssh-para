@@ -8,7 +8,6 @@ import sys
 import signal
 import threading
 import queue
-import re
 import curses
 from glob import glob
 from re import sub, escape
@@ -21,6 +20,7 @@ from argparse import ArgumentParser
 from dataclasses import dataclass
 from copy import deepcopy
 from colorama import Fore, Style, init
+from ssh_para.version import __version__
 
 os.environ["TERM"] = "xterm-256color"
 
@@ -80,6 +80,7 @@ def parse_args():
     parser.add_argument("-l", "--list", action="store_true", help="list ssh-para results/log directories")
     parser.add_argument("-L", "--logs", nargs="*", help="get latest host logs")
     parser.add_argument("-m", "--maxdots", type=int, help="canonical hostname level (default:1)")
+    parser.add_argument("-V", "--version", action="store_true", help="ssh-para version")
     parser.add_argument("ssh_args", nargs="*")
     return parser.parse_args()
 
@@ -892,6 +893,9 @@ def main():
     global MAX_DOTS
     init(autoreset=True)
     args = parse_args()
+    if args.version:
+        print(f"ssh-para: {__version__}")
+        sys.exit(0)
     if args.maxdots:
         MAX_DOTS = args.maxdots
     if args.list:
