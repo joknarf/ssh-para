@@ -30,6 +30,7 @@ SYMBOL_PROG = os.environ.get("SSHP_SYM_PROG") or "\u25a0"  # ■
 SYMBOL_RES = os.environ.get("SSHP_SYM_RES") or "\u25ba"  # b6 ▶
 DNS_DOMAINS = os.environ.get("SSHP_DOMAINS") or ""
 SSH_OPTS = os.environ.get("SSHP_OPTS") or ""
+MAX_DOTS = int(os.environ.get("SSHP_MAX_DOTS") or 0)
 INTERRUPT = False
 
 jobq = queue.Queue()
@@ -78,6 +79,7 @@ def parse_args():
     )
     parser.add_argument("-l", "--list", action="store_true", help="list ssh-para results/log directories")
     parser.add_argument("-L", "--logs", nargs="*", help="get latest host logs")
+    parser.add_argument("-m", "--maxdots", type=int, help="canonical hostname level (default:1)")
     parser.add_argument("ssh_args", nargs="*")
     return parser.parse_args()
 
@@ -203,7 +205,7 @@ def short_host(host):
     """remove dns domain from fqdn"""
     if is_ip(host):
         return host
-    return host.split(".")[0]
+    return ".".join(host.split(".")[:MAX_DOTS+1])
 
 
 class Segment:
@@ -843,6 +845,7 @@ def log_content(dirlog, wildcard):
             log = log.splitlines()
             for l in log:
                 print(f"{prefix}:", l.rstrip())
+            print()
 
 
 def log_contents(wildcards, dirlog, job):
@@ -886,8 +889,11 @@ def make_logdir(dirlog, job):
 
 def main():
     """argument read / read hosts file / prepare commands / launch jobs"""
+    global MAX_DOTS
     init(autoreset=True)
     args = parse_args()
+    if args.maxdots:
+        MAX_DOTS = args.maxdots
     if args.list:
         log_results(args.dirlog, args.job)
     if args.logs:
