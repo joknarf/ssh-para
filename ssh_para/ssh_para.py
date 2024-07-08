@@ -78,12 +78,13 @@ def parse_args():
         help="verbose display (fqdn + line for last output)",
     )
     parser.add_argument("-l", "--list", action="store_true", help="list ssh-para results/log directories")
-    parser.add_argument("-L", "--logs", nargs="*", help="""get latest ssh-para run logs
--L=*         : all logs
--L=*.out     : all hosts outputs 
--L=*.success : output of success hosts
--L=*.failed  : output of failed hosts
--L=<host>.*  : logs for host  
+    parser.add_argument("-L", "--logs", nargs="*", help="""get latest/current ssh-para run logs
+-L*          : all logs
+-L*.out      : all hosts outputs
+-L*.success  : output of success hosts
+-L*.failed   : output of failed hosts
+-L <host>.*  : logs for host
+-L <logid>/* : logs for logid (from ssh-para --list)
 """)
     parser.add_argument("-m", "--maxdots", type=int, help="hostname domain displaylevel (default:0 => short hostname)")
     parser.add_argument("-V", "--version", action="store_true", help="ssh-para version")
@@ -368,9 +369,10 @@ class JobPrint(threading.Thread):
 
     def interrupt(self, jstatus):
         """sigint handler to log/print summary"""
-        if jstatus and jstatus.status == "FAILED":
-            self.job_status[-1].status = "KILLED"
-            self.job_status[-1].exit = 256
+        self.abort_jobs()
+        if jstatus and jstatus.exit in [-2, 255]:
+            jstatus.status = "KILLED"
+            jstatus.exit = 256
         for jstatus in self.th_status:
             if jstatus.status != "IDLE" and jstatus.exit == None:
                 if jstatus.fdlog:
@@ -636,7 +638,7 @@ class JobPrint(threading.Thread):
         global_log = open(f"{self.dirlog}/ssh-para.log", "w", encoding="UTF-8")
         if self.aborted:
             print_tee(
-                "Cancelled hosts:", str(self.nbjobs), file=global_log, color=Style.BRIGHT + Fore.RED
+                "Cancelled hosts:", str(len(self.aborted)), file=global_log, color=Style.BRIGHT + Fore.RED
             )
             for host in self.aborted:
                 print_tee(host, file=global_log)
@@ -661,7 +663,7 @@ class JobPrint(threading.Thread):
             print_tee(" ", jstatus.log, file=global_log)
         print_tee("command:", self.command, file=global_log)
         print_tee("log directory:", self.pdirlog, file=global_log)
-        start = strftime('%X', datetime.fromtimestamp(self.startsec).timetuple())
+        start = datetime.fromtimestamp(self.startsec).strftime("%Y-%m-%d %H:%M:%S")
         print_tee(
             f"{nbrun}/{self.nbjobs} jobs run : Begin: {start}",
             f"End: {end} Duration: {total_dur}",
@@ -743,8 +745,11 @@ class JobRun(threading.Thread):
 
     def run(self):
         """schedule Jobs / pause / resume"""
+        global INTERRUPT
         while True:
             pauseq.join()
+            if INTERRUPT:
+                break
             try:
                 job: Job = jobq.get(block=False)
             except queue.Empty:
@@ -854,14 +859,43 @@ def log_content(dirlog, wildcard):
                 print(f"{prefix}:", l.rstrip())
             print()
 
+def isdir(dir):
+    try:
+        if os.path.isdir(dir):
+            return True
+    except OSError:
+        return False
+    return False
+
+
+def get_latest_dir(dirlog):
+    try:
+        dirs = glob(f"{dirlog}/[0-9]*")
+    except OSError:
+        print(f"Error: ssh-para: no log directory found in {dirlog}", file=sys.stderr)
+        sys.exit(1)
+    dirs.sort()
+    for dir in dirs[::-1]:
+        if isdir(dir):
+            return dir
+    print(f"no log directory found in {dirlog}")
+    sys.exit(1)
+
 
 def log_contents(wildcards, dirlog, job):
     """print logs content according to wildcards *.out *.success..."""
     if job:
         dirlog += f"/{job}"
-    latest = f"{dirlog}/latest"
     for wildcard in wildcards:
-        log_content(latest, wildcard)
+        if "/" in wildcard:
+            logdir = dirlog + "/" + wildcard.split("/")[0]
+            wildcard = wildcard.split("/")[1]
+        else:
+            logdir = get_latest_dir(dirlog)
+        if not isdir(logdir):
+            print(f"Notice: ssh-para: cannot access directory {logdir}")
+            continue
+        log_content(logdir, wildcard)
     sys.exit(0)
 
 
