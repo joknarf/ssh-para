@@ -60,12 +60,13 @@ options:
   -v, --verbose         verbose display (fqdn + line for last output)
   -l, --list            list ssh-para results/log directories
   -L [LOGS ...], --logs [LOGS ...]
-                        get latest ssh-para run logs 
+                        get latest/current ssh-para run logs 
                         -L=*         : all logs
                         -L=*.out     : all hosts outputs 
                         -L=*.success : output of success hosts
                         -L=*.failed  : output of failed hosts
-                        -L=<host>.*  : logs for host  
+                        -L=<host>.*  : logs for host
+                        -L <logid>/* : logs for logid (from ssh-para --list)
   -m MAXDOTS, --maxdots MAXDOTS
                         hostname domain displaylevel (default:0 => short hostname)
   -V, --version         ssh-para version
