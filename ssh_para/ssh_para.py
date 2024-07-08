@@ -376,25 +376,16 @@ class JobPrint(threading.Thread):
         while True:
             try:
                 jstatus = printq.get(block=False)
-                if jstatus.fdlog:
-                    jstatus.log = last_line(jstatus.fdlog)
-                    jstatus.fdlog.close()
+                if not jstatus.fdlog:
+                    jstatus.fdlog = open(jstatus.logfile, "rb")
+                jstatus.log = last_line(jstatus.fdlog)
+                jstatus.fdlog.close()
                 if jstatus.exit in [-2, 255]:
                     jstatus.status = "KILLED"
                     jstatus.exit = 256
                 self.job_status.append(jstatus)
             except queue.Empty:
                 break
-
-            
-#        for jstatus in self.th_status:
-#            if jstatus.status != "IDLE" and jstatus.exit == None:
-#                if jstatus.fdlog:
-#                    jstatus.fdlog.close()
-#                jstatus.status="KILLED"
-#                jstatus.exit = 256
-#                self.nbfailed += 1
-#                self.job_status.append(jstatus)
         self.abort_jobs()
         try:
             curses.endwin()
