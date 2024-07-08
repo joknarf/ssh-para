@@ -369,18 +369,24 @@ class JobPrint(threading.Thread):
 
     def interrupt(self, jstatus):
         """sigint handler to log/print summary"""
-        self.abort_jobs()
-        if jstatus and jstatus.exit in [-2, 255]:
+
+        if jstatus and jstatus.exit in [-2, 255, 4294967295]:
             jstatus.status = "KILLED"
             jstatus.exit = 256
-        for jstatus in self.th_status:
-            if jstatus.status != "IDLE" and jstatus.exit == None:
-                if jstatus.fdlog:
-                    jstatus.fdlog.close()
-                jstatus.status="KILLED"
-                jstatus.exit = 256
-                self.nbfailed += 1
+        while True:
+            try:
+                jstatus = printq.get(block=False)
+                if not jstatus.fdlog:
+                    jstatus.fdlog = open(jstatus.logfile, "rb")
+                jstatus.log = last_line(jstatus.fdlog)
+                jstatus.fdlog.close()
+                if jstatus.exit in [-2, 255, 4294967295]:
+                    jstatus.status = "KILLED"
+                    jstatus.exit = 256
                 self.job_status.append(jstatus)
+            except queue.Empty:
+                break
+        self.abort_jobs()
         try:
             curses.endwin()
         except curses.error:
