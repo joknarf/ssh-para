@@ -78,12 +78,12 @@ def parse_args():
         help="verbose display (fqdn + line for last output)",
     )
     parser.add_argument("-l", "--list", action="store_true", help="list ssh-para results/log directories")
-    parser.add_argument("-L", "--logs", nargs="*", help="""get latest ssh-para run logs
--L*         : all logs
--L*.out     : all hosts outputs
--L*.success : output of success hosts
--L*.failed  : output of failed hosts
--L<host>.*  : logs for host
+    parser.add_argument("-L", "--logs", nargs="*", help="""get latest/current ssh-para run logs
+-L*          : all logs
+-L*.out      : all hosts outputs
+-L*.success  : output of success hosts
+-L*.failed   : output of failed hosts
+-L <host>.*  : logs for host
 -L <logid>/* : logs for logid (from ssh-para --list)
 """)
     parser.add_argument("-m", "--maxdots", type=int, help="hostname domain displaylevel (default:0 => short hostname)")
@@ -369,9 +369,10 @@ class JobPrint(threading.Thread):
 
     def interrupt(self, jstatus):
         """sigint handler to log/print summary"""
-        if jstatus and jstatus.status == "FAILED":
-            self.job_status[-1].status = "KILLED"
-            self.job_status[-1].exit = 256
+        self.abort_jobs()
+        if jstatus and jstatus.exit in [-2, 255]:
+            jstatus.status = "KILLED"
+            jstatus.exit = 256
         for jstatus in self.th_status:
             if jstatus.status != "IDLE" and jstatus.exit == None:
                 if jstatus.fdlog:
@@ -637,7 +638,7 @@ class JobPrint(threading.Thread):
         global_log = open(f"{self.dirlog}/ssh-para.log", "w", encoding="UTF-8")
         if self.aborted:
             print_tee(
-                "Cancelled hosts:", str(self.nbjobs), file=global_log, color=Style.BRIGHT + Fore.RED
+                "Cancelled hosts:", str(len(self.aborted)), file=global_log, color=Style.BRIGHT + Fore.RED
             )
             for host in self.aborted:
                 print_tee(host, file=global_log)
@@ -744,8 +745,11 @@ class JobRun(threading.Thread):
 
     def run(self):
         """schedule Jobs / pause / resume"""
+        global INTERRUPT
         while True:
             pauseq.join()
+            if INTERRUPT:
+                break
             try:
                 job: Job = jobq.get(block=False)
             except queue.Empty:
