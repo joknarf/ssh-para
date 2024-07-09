@@ -109,7 +109,6 @@ def resolve_hostname(host):
     try:
         res = gethostbyname_ex(host)
     except OSError:
-        print(f"Warning: ssh-para: cannot resolve {host}", file=sys.stderr)
         return None
     return res[0]
 
@@ -123,6 +122,7 @@ def resolve_in_domains(host, domains):
         fqdn = resolve_hostname(f"{host}.{domain}")
         if fqdn:
             return fqdn
+    print(f"Warning: ssh-para: cannot resolve {host}", file=sys.stderr)
     return host
 
 def resolve_ip(ip):
@@ -389,7 +389,6 @@ class JobPrint(threading.Thread):
             except queue.Empty:
                 jstatus = None
             th_id = None
-
             if jstatus:
                 if not jstatus.fdlog:  # start RUNNING
                     jstatus.fdlog = open(jstatus.logfile, "rb")
@@ -575,7 +574,6 @@ class JobPrint(threading.Thread):
             try:
                 os.kill(th_status.pid, signal.SIGINT)
                 self.killedpid[th_status.pid] = status
-                self.nbfailed += 1
             except ProcessLookupError:
                 pass
 
@@ -619,9 +617,6 @@ class JobPrint(threading.Thread):
         """aborts remaining jobs"""
         if not jobq.qsize():
             return
-        if self.stdscr:
-            addstrc(self.stdscr, curses.LINES - 1, 0, "Cancel remaining jobs...")
-            self.stdscr.refresh()
         while True:
             try:
                 job = jobq.get(block=False)
