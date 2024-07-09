@@ -166,8 +166,9 @@ def addstr(stdscr, *args, **kwargs):
 
 def addstrc(stdscr, *args, **kwargs):
     """curses addstr and clear eol"""
-    addstr(stdscr, *args, **kwargs)
-    stdscr.clrtoeol()
+    if stdscr:
+        addstr(stdscr, *args, **kwargs)
+        stdscr.clrtoeol()
 
 
 def tdelta(*args, **kwargs):
@@ -331,6 +332,7 @@ class JobPrint(threading.Thread):
     def init_curses(self):
         """curses window init"""
         self.stdscr = curses.initscr()
+        curses.raw()
         # self.stdscr.scrollok(True)
         curses.noecho()
         curses.curs_set(0)
@@ -359,6 +361,7 @@ class JobPrint(threading.Thread):
         curses.init_pair(self.COLOR_GAUGE, 8, curses.COLOR_BLUE)
         curses.init_pair(self.COLOR_HOST, curses.COLOR_YELLOW, curses.COLOR_BLACK)
 
+
     def join(self, *args):
         """returns nb failed"""
         global INTERRUPT
@@ -367,33 +370,11 @@ class JobPrint(threading.Thread):
             return 130
         return self.nbfailed > 0
 
-    def interrupt(self, jstatus):
-        """sigint handler to log/print summary"""
 
-        if jstatus and jstatus.exit in [-2, 255, 4294967295]:
-            jstatus.status = "KILLED"
-            jstatus.exit = 256
-        while True:
-            try:
-                jstatus = printq.get(block=False)
-                if not jstatus.fdlog:
-                    jstatus.fdlog = open(jstatus.logfile, "rb")
-                jstatus.log = last_line(jstatus.fdlog)
-                jstatus.fdlog.close()
-                if jstatus.exit in [-2, 255, 4294967295]:
-                    jstatus.status = "KILLED"
-                    jstatus.exit = 256
-                self.job_status.append(jstatus)
-            except queue.Empty:
-                break
-        self.abort_jobs()
-        try:
-            curses.endwin()
-        except curses.error:
-            pass
-        self.print_summary()
-        os._exit(1)
-
+    def killall(self):
+        for status in self.th_status:
+            if status.status == "RUNNING":
+                self.kill("KILLED", status.thread_id)
 
     def run(self):
         """get threads status change"""
@@ -401,11 +382,14 @@ class JobPrint(threading.Thread):
         jobsdur = 0
         nbsshjobs = 0
         while True:
+            if INTERRUPT:
+                self.abort_jobs()
             try:
                 jstatus: JobStatus = printq.get(timeout=0.1)
             except queue.Empty:
                 jstatus = None
             th_id = None
+
             if jstatus:
                 if not jstatus.fdlog:  # start RUNNING
                     jstatus.fdlog = open(jstatus.logfile, "rb")
@@ -422,12 +406,18 @@ class JobPrint(threading.Thread):
                         if jstatus.exit == 255:
                             nbsshjobs -= 1
                             jobsdur -= jstatus.duration
+                        if INTERRUPT and jstatus.exit in [-2, 255, 4294967295]:
+                            jstatus.status = "KILLED"
+                            jstatus.exit = 256
                     self.job_status.append(jstatus)
                 self.th_status[jstatus.thread_id] = jstatus
                 if not self.stdscr:
-                    print(
-                        f"{strftime('%X')}: {jstatus.status} {len(self.job_status)}: {jstatus.host}"
-                    )
+                    try:
+                        print(
+                            f"{strftime('%X')}: {jstatus.status} {len(self.job_status)}: {jstatus.host}"
+                        )
+                    except BrokenPipeError:
+                        pass
             total_dur = tdelta(seconds=round(time() - self.startsec))
             if self.stdscr:
                 self.display_curses(th_id, total_dur, jobsdur, nbsshjobs)
@@ -435,18 +425,15 @@ class JobPrint(threading.Thread):
                 self.check_timeouts()
             if len(self.job_status) == self.nbjobs:
                 break
-            if INTERRUPT:
-                self.interrupt(jstatus)
-                return
         self.resume()
         if self.stdscr:
             addstrc(self.stdscr, curses.LINES - 1, 0, "All jobs finished")
             self.stdscr.refresh()
             self.stdscr.getch()
             curses.endwin()
-            curses.echo()
-            curses.curs_set(1)
         self.print_summary()
+        if INTERRUPT:
+            os._exit(1)
 
     def check_timeout(self, th_id, duration):
         """kill ssh if duration exceeds timeout"""
@@ -554,6 +541,7 @@ class JobPrint(threading.Thread):
 
     def get_key(self):
         """manage interactive actions"""
+        global INTERRUPT
         self.stdscr.nodelay(True)
         ch = self.stdscr.getch()
         self.stdscr.nodelay(False)
@@ -566,6 +554,10 @@ class JobPrint(threading.Thread):
             self.pause()
         if ch == 114:  # r resume
             self.resume()
+        if ch == 3: # CTRL+c
+            INTERRUPT = True
+            self.abort_jobs()
+            self.killall()
 
     def kill(self, status="KILLED", th_kill=None):
         """interactive kill pid of ssh thread"""
@@ -578,12 +570,14 @@ class JobPrint(threading.Thread):
                 return
             finally:
                 curses.noecho()
-        try:
-            os.kill(self.th_status[th_kill].pid, 15)
-            self.killedpid[self.th_status[th_kill].pid] = status
-            self.nbfailed += 1
-        except ProcessLookupError:
-            pass
+        th_status = self.th_status[th_kill]
+        if th_status.pid > 0:
+            try:
+                os.kill(th_status.pid, signal.SIGINT)
+                self.killedpid[th_status.pid] = status
+                self.nbfailed += 1
+            except ProcessLookupError:
+                pass
 
     def pause(self):
         """pause JobRun threads"""
@@ -623,8 +617,11 @@ class JobPrint(threading.Thread):
 
     def abort_jobs(self):
         """aborts remaining jobs"""
-        addstrc(self.stdscr, curses.LINES - 1, 0, "Cancel remaining jobs...")
-        self.stdscr.refresh()
+        if not jobq.qsize():
+            return
+        if self.stdscr:
+            addstrc(self.stdscr, curses.LINES - 1, 0, "Cancel remaining jobs...")
+            self.stdscr.refresh()
         while True:
             try:
                 job = jobq.get(block=False)
@@ -747,13 +744,15 @@ class JobRun(threading.Thread):
         """constructor"""
         self.thread_id = thread_id
         self.dirlog = dirlog
+        self.stopme = False
         super().__init__()
+        self.daemon = True
 
     def run(self):
         """schedule Jobs / pause / resume"""
-        global INTERRUPT
         while True:
             pauseq.join()
+            global INTERRUPT
             if INTERRUPT:
                 break
             try:
@@ -979,11 +978,12 @@ def main():
         command, parallel, len(hosts), dirlog, args.timeout, args.verbose, max_len
     )
     p.start()
+    jobruns = []
     for i in range(parallel):
         if jobq.qsize() == 0:
             break
-        t = JobRun(i, dirlog=dirlog)
-        t.start()
+        jobruns.append(JobRun(i, dirlog=dirlog))
+        jobruns[i].start()
         sleep(args.delay)
 
     jobq.join()
