@@ -374,7 +374,7 @@ class JobPrint(threading.Thread):
     def killall(self):
         for status in self.th_status:
             if status.status == "RUNNING":
-                self.kill("KILLED", status.thread_id)
+                self.kill(status.thread_id)
 
     def run(self):
         """get threads status change"""
@@ -439,7 +439,7 @@ class JobPrint(threading.Thread):
         if not self.timeout:
             return
         if duration > self.timeout:
-            self.kill("TIMEOUT", th_id)
+            self.kill(th_id, "TIMEOUT")
 
     def check_timeouts(self):
         """check threads timemout"""
@@ -548,7 +548,7 @@ class JobPrint(threading.Thread):
         if ch == 97:  # a => abort (cancel)
             self.abort_jobs()
         if ch == 107:  # k kill
-            self.kill()
+            self.curses_kill()
         if ch == 112:  # p pause
             self.pause()
         if ch == 114:  # r resume
@@ -558,18 +558,20 @@ class JobPrint(threading.Thread):
             self.abort_jobs()
             self.killall()
 
-    def kill(self, status="KILLED", th_kill=None):
+    def curses_kill(self):
         """interactive kill pid of ssh thread"""
-        if th_kill is None:
-            curses.echo()
-            addstrc(self.stdscr, curses.LINES - 1, 0, "kill job in thread: ")
-            try:
-                th_kill = int(self.stdscr.getstr())
-            except ValueError:
-                return
-            finally:
-                curses.noecho()
-        th_status = self.th_status[th_kill]
+        curses.echo()
+        addstrc(self.stdscr, curses.LINES - 1, 0, "kill job in thread: ")
+        try:
+            th_id = int(self.stdscr.getstr())
+        except ValueError:
+            return
+        finally:
+            curses.noecho()
+        self.kill(th_id)
+
+    def kill(self, th_id, status="KILLED"):
+        th_status = self.th_status[th_id]
         if th_status.pid > 0:
             try:
                 os.kill(th_status.pid, signal.SIGINT)
@@ -739,9 +741,7 @@ class JobRun(threading.Thread):
         """constructor"""
         self.thread_id = thread_id
         self.dirlog = dirlog
-        self.stopme = False
         super().__init__()
-        self.daemon = True
 
     def run(self):
         """schedule Jobs / pause / resume"""
