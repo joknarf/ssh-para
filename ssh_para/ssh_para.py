@@ -969,6 +969,7 @@ def main():
         jobq.put(Job(host=host, command=args.ssh_args))
     parallel = min(len(hosts), args.parallel)
     signal.signal(signal.SIGINT, sigint_handler)
+    signal.signal(signal.SIGPIPE, sigint_handler)
     p = JobPrint(
         command, parallel, len(hosts), dirlog, args.timeout, args.verbose, max_len
     )
