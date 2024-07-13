@@ -109,6 +109,10 @@ Environment variables:
 * SSHP_SYM_PROG: Symbol character for progress bar fill (default: "\u25a0")
 * SSHP_SYM_RES: Symbol character before ssh output line (default: "\u25b6")
 
+Activate autocompletion:
+* `. <(ssh-para -C bash)`
+* `ssh-para -C powershell | Out-String | Invoke-Expression`
+
 # Example
 
 Patch redhat family hosts:
