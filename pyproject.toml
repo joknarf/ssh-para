@@ -11,6 +11,7 @@ description = "Interactive Parallel SSH jobs manager"
 dependencies = [
   "colorama",
   "dataclasses>=0.6; python_version < '3.7'",
+  "argcomplete>=3.0.4",
   "windows-curses>=2.3.3; platform_system == 'Windows'",
 ]
 dynamic=["version"]

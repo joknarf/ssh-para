@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
+# coding: utf-8
+# pylint: disable=E1101,R1732,C0301,C0302,W0603
 """
     ssh-para.py parallel ssh commands
     Author: Franck Jouvanceau
@@ -19,6 +22,7 @@ from subprocess import Popen, DEVNULL
 from argparse import ArgumentParser, RawTextHelpFormatter
 from dataclasses import dataclass
 from copy import deepcopy
+import argcomplete
 from colorama import Fore, Style, init
 from ssh_para.version import __version__
 
@@ -30,7 +34,7 @@ SYMBOL_PROG = os.environ.get("SSHP_SYM_PROG") or "\u25a0"  # ■
 SYMBOL_RES = os.environ.get("SSHP_SYM_RES") or "\u25ba"  # b6 ▶
 DNS_DOMAINS = os.environ.get("SSHP_DOMAINS") or ""
 SSH_OPTS = os.environ.get("SSHP_OPTS") or ""
-MAX_DOTS = int(os.environ.get("SSHP_MAX_DOTS") or 0)
+MAX_DOTS = int(os.environ.get("SSHP_MAX_DOTS") or 1)
 INTERRUPT = False
 
 jobq = queue.Queue()
@@ -38,35 +42,61 @@ printq = queue.Queue()
 pauseq = queue.Queue()
 
 
+def shell_argcomplete(shell="bash"):
+    """produce code to source in shell
+    . <(ssh-para -C bash)
+    ssh-para -C powershell | Out-String | Invoke-Expression
+    """
+    print(argcomplete.shellcode(["ssh-para"], shell=shell))
+    sys.exit(0)
+
+
+def log_choices(**kwargs):
+    """argcomplete -L choices"""
+    return (
+        "*.status",
+        "success.status",
+        "failed.status",
+        "killed.status",
+        "timeout.status",
+        "aborted.status",
+        "*.out",
+        "*.success",
+        "*.failed",
+        "hosts.list",
+        "hosts_input.list",
+        "ssh-para.log",
+        "ssh-para.result",
+        "ssh-para.command",
+    )
+
+
 def parse_args():
     """argument parse"""
     if len(sys.argv) == 1:
         sys.argv.append("-h")
-    parser = ArgumentParser(description=f"ssh-para v{__version__}", formatter_class=RawTextHelpFormatter)
-    parser.add_argument(
-        "-p", "--parallel", type=int, help="parallelism (default 4)", default=4
+    parser = ArgumentParser(
+        description=f"ssh-para v{__version__}", formatter_class=RawTextHelpFormatter
     )
+    parser.add_argument("-V", "--version", action="store_true", help="ssh-para version")
     parser.add_argument(
         "-j", "--job", help="Job name added subdir to dirlog", default=""
     )
     parser.add_argument(
         "-d",
         "--dirlog",
-        help="directory for ouput log files (~/.ssh-para)",
+        help="directory for ouput log files (default: ~/.ssh-para)",
         default=os.path.expanduser("~/.ssh-para"),
     )
-    host_group = parser.add_mutually_exclusive_group()
-    host_group.add_argument("-f", "--hostsfile", help="hosts list file")
-    host_group.add_argument("-H", "--hosts", help="hosts list", nargs="+")
     parser.add_argument(
-        "-D",
-        "--delay",
-        type=float,
-        default=0.3,
-        help="initial delay in seconds between ssh commands (default=0.3s)",
+        "-m",
+        "--maxdots",
+        type=int,
+        help="hostname domain displaylevel (default:1 => short hostname, -1 => fqdn)",
     )
-    parser.add_argument("-s", "--script", help="script to execute")
-    parser.add_argument("-a", "--args", nargs="+", help="script arguments")
+    parser.add_argument(
+        "-p", "--parallel", type=int, help="parallelism (default 4)", default=4
+    )
     parser.add_argument("-t", "--timeout", type=int, help="timeout of each job")
     parser.add_argument(
         "-r", "--resolve", action="store_true", help="resolve fqdn in SSHP_DOMAINS"
@@ -77,18 +107,49 @@ def parse_args():
         action="store_true",
         help="verbose display (fqdn + line for last output)",
     )
-    parser.add_argument("-l", "--list", action="store_true", help="list ssh-para results/log directories")
-    parser.add_argument("-L", "--logs", nargs="*", help="""get latest/current ssh-para run logs
--L*          : all logs
--L*.out      : all hosts outputs
--L*.success  : output of success hosts
--L*.failed   : output of failed hosts
--L <host>.*  : logs for host
--L <logid>/* : logs for logid (from ssh-para --list)
-""")
-    parser.add_argument("-m", "--maxdots", type=int, help="hostname domain displaylevel (default:0 => short hostname)")
-    parser.add_argument("-V", "--version", action="store_true", help="ssh-para version")
+    parser.add_argument(
+        "-D",
+        "--delay",
+        type=float,
+        default=0.3,
+        help="initial delay in seconds between ssh commands (default=0.3s)",
+    )
+    host_group = parser.add_mutually_exclusive_group()
+    host_group.add_argument("-f", "--hostsfile", help="hosts list file")
+    host_group.add_argument("-H", "--hosts", help="hosts list", nargs="+")
+    host_group.add_argument(
+        "-C",
+        "--completion",
+        choices=["bash", "zsh", "powershell"],
+        help="autocompletion shell code to source",
+    )
+    host_group.add_argument(
+        "-l",
+        "--list",
+        action="store_true",
+        help="list ssh-para results/log directories",
+    )
+    host_group.add_argument(
+        "-L",
+        "--logs",
+        nargs="+",
+        help="""get latest/current ssh-para run logs
+-L[<runid>/]*.out          : all hosts outputs
+-L[<runid>/]<host>.out     : command output of host
+-L[<runid>/]*.<status>     : command output of hosts <status>
+-L[<runid>/]*.status       : hosts lists with status
+-L[<runid>/]<status>.status: <status> hosts list
+-L[<runid>/]hosts.list     : list of hosts used to connect (resolved if -r)
+default <runid> is latest ssh-para run (use -j <job> -d <dir> to access logs if used for run)
+<status>: [success,failed,timeout,killed,aborted]
+""",
+    ).completer = log_choices
+
+    parser.add_argument("-s", "--script", help="script to execute")
+    parser.add_argument("-a", "--args", nargs="+", help="script arguments")
+
     parser.add_argument("ssh_args", nargs="*")
+    argcomplete.autocomplete(parser)
     return parser.parse_args()
 
 
@@ -98,10 +159,10 @@ def sigint_handler(*args):
     INTERRUPT = True
 
 
-def hometilde(dir):
+def hometilde(directory):
     """substitute home to tilde in dir"""
     home = os.path.expanduser("~/")
-    return sub(rf"^{escape(home)}", "~/", dir)
+    return sub(rf"^{escape(home)}", "~/", directory)
 
 
 def resolve_hostname(host):
@@ -109,7 +170,6 @@ def resolve_hostname(host):
     try:
         res = gethostbyname_ex(host)
     except OSError:
-        print(f"Warning: ssh-para: cannot resolve {host}", file=sys.stderr)
         return None
     return res[0]
 
@@ -123,7 +183,9 @@ def resolve_in_domains(host, domains):
         fqdn = resolve_hostname(f"{host}.{domain}")
         if fqdn:
             return fqdn
+    print(f"Warning: ssh-para: cannot resolve {host}", file=sys.stderr)
     return host
+
 
 def resolve_ip(ip):
     """try resolve hostname by reverse dns query on ip addr"""
@@ -166,8 +228,9 @@ def addstr(stdscr, *args, **kwargs):
 
 def addstrc(stdscr, *args, **kwargs):
     """curses addstr and clear eol"""
-    addstr(stdscr, *args, **kwargs)
-    stdscr.clrtoeol()
+    if stdscr:
+        addstr(stdscr, *args, **kwargs)
+        stdscr.clrtoeol()
 
 
 def tdelta(*args, **kwargs):
@@ -206,14 +269,14 @@ def last_line(fd, maxline=1000):
             break
         line = decode_line(fd.readline())
         fd.seek(-4, os.SEEK_CUR)
-    return line.strip() + "\n"
+    return line.strip()
 
 
 def short_host(host):
     """remove dns domain from fqdn"""
     if is_ip(host):
         return host
-    return ".".join(host.split(".")[:MAX_DOTS+1])
+    return ".".join(host.split(".")[: MAX_DOTS])
 
 
 class Segment:
@@ -276,6 +339,42 @@ class JobStatus:
     fdlog: int = 0
 
 
+class JobStatusLog:
+    """manage log *.status files/count statuses"""
+
+    @dataclass
+    class LogStatus:
+        """fd log/count status"""
+
+        fd: int = 0
+        nb: int = 0
+
+    def __init__(self, dirlog):
+        """open log files for each status"""
+        statuses = ["SUCCESS", "FAILED", "TIMEOUT", "KILLED", "ABORTED"]
+        self.lstatus = {}
+        for status in statuses:
+            self.lstatus[status] = self.LogStatus(fd=self.open(dirlog, status))
+
+    def open(self, dirlog, status):
+        """open log file for status"""
+        return open(f"{dirlog}/{status.lower()}.status", "w", encoding="UTF-8")
+
+    def addhost(self, host, status):
+        """add host in status log"""
+        if status in self.lstatus:
+            self.lstatus[status].nb += 1
+            print(host, file=self.lstatus[status].fd)
+
+    def result(self):
+        """print counts of statuses"""
+        return " ".join([f"{s.lower()[:4]}: {v.nb}" for s, v in self.lstatus.items()])
+
+    def __del__(self):
+        for s in self.lstatus.values():
+            s.fd.close()
+
+
 class JobPrint(threading.Thread):
     """
     Thread to display jobs statuses of JobRun threads
@@ -290,6 +389,7 @@ class JobPrint(threading.Thread):
         "TIMEOUT": 104,
         "IDLE": 106,
     }
+
     COLOR_GAUGE = 108
     COLOR_HOST = 110
 
@@ -321,6 +421,7 @@ class JobPrint(threading.Thread):
         self.maxhostlen = maxhostlen
         self.killedpid = {}
         self.pdirlog = hometilde(dirlog)
+        self.jobstatuslog = JobStatusLog(dirlog)
         if sys.stdout.isatty():
             self.init_curses()
         super().__init__()
@@ -331,6 +432,7 @@ class JobPrint(threading.Thread):
     def init_curses(self):
         """curses window init"""
         self.stdscr = curses.initscr()
+        curses.raw()
         # self.stdscr.scrollok(True)
         curses.noecho()
         curses.curs_set(0)
@@ -361,46 +463,24 @@ class JobPrint(threading.Thread):
 
     def join(self, *args):
         """returns nb failed"""
-        global INTERRUPT
         super().join(*args)
         if INTERRUPT:
             return 130
         return self.nbfailed > 0
 
-    def interrupt(self, jstatus):
-        """sigint handler to log/print summary"""
-
-        if jstatus and jstatus.exit in [-2, 255, 4294967295]:
-            jstatus.status = "KILLED"
-            jstatus.exit = 256
-        while True:
-            try:
-                jstatus = printq.get(block=False)
-                if not jstatus.fdlog:
-                    jstatus.fdlog = open(jstatus.logfile, "rb")
-                jstatus.log = last_line(jstatus.fdlog)
-                jstatus.fdlog.close()
-                if jstatus.exit in [-2, 255, 4294967295]:
-                    jstatus.status = "KILLED"
-                    jstatus.exit = 256
-                self.job_status.append(jstatus)
-            except queue.Empty:
-                break
-        self.abort_jobs()
-        try:
-            curses.endwin()
-        except curses.error:
-            pass
-        self.print_summary()
-        os._exit(1)
-
+    def killall(self):
+        """kill all running threads pid"""
+        for status in self.th_status:
+            if status.status == "RUNNING":
+                self.kill(status.thread_id)
 
     def run(self):
         """get threads status change"""
-        global INTERRUPT
         jobsdur = 0
         nbsshjobs = 0
         while True:
+            if INTERRUPT:
+                self.abort_jobs()
             try:
                 jstatus: JobStatus = printq.get(timeout=0.1)
             except queue.Empty:
@@ -422,12 +502,19 @@ class JobPrint(threading.Thread):
                         if jstatus.exit == 255:
                             nbsshjobs -= 1
                             jobsdur -= jstatus.duration
+                        if INTERRUPT and jstatus.exit in [-2, 255, 4294967295]:
+                            jstatus.status = "KILLED"
+                            jstatus.exit = 256
+                    self.jobstatuslog.addhost(jstatus.host, jstatus.status)
                     self.job_status.append(jstatus)
                 self.th_status[jstatus.thread_id] = jstatus
                 if not self.stdscr:
-                    print(
-                        f"{strftime('%X')}: {jstatus.status} {len(self.job_status)}: {jstatus.host}"
-                    )
+                    try:
+                        print(
+                            f"{strftime('%X')}: {jstatus.status} {len(self.job_status)}: {jstatus.host}"
+                        )
+                    except BrokenPipeError:
+                        pass
             total_dur = tdelta(seconds=round(time() - self.startsec))
             if self.stdscr:
                 self.display_curses(th_id, total_dur, jobsdur, nbsshjobs)
@@ -435,25 +522,23 @@ class JobPrint(threading.Thread):
                 self.check_timeouts()
             if len(self.job_status) == self.nbjobs:
                 break
-            if INTERRUPT:
-                self.interrupt(jstatus)
-                return
         self.resume()
         if self.stdscr:
             addstrc(self.stdscr, curses.LINES - 1, 0, "All jobs finished")
             self.stdscr.refresh()
             self.stdscr.getch()
             curses.endwin()
-            curses.echo()
-            curses.curs_set(1)
-        self.print_summary()
+
+    #   self.print_summary()
+    #   if INTERRUPT:
+    #       os._exit(1)
 
     def check_timeout(self, th_id, duration):
         """kill ssh if duration exceeds timeout"""
         if not self.timeout:
             return
         if duration > self.timeout:
-            self.kill("TIMEOUT", th_id)
+            self.kill(th_id, "TIMEOUT")
 
     def check_timeouts(self):
         """check threads timemout"""
@@ -554,6 +639,7 @@ class JobPrint(threading.Thread):
 
     def get_key(self):
         """manage interactive actions"""
+        global INTERRUPT
         self.stdscr.nodelay(True)
         ch = self.stdscr.getch()
         self.stdscr.nodelay(False)
@@ -561,29 +647,37 @@ class JobPrint(threading.Thread):
         if ch == 97:  # a => abort (cancel)
             self.abort_jobs()
         if ch == 107:  # k kill
-            self.kill()
+            self.curses_kill()
         if ch == 112:  # p pause
             self.pause()
         if ch == 114:  # r resume
             self.resume()
+        if ch == 3:  # CTRL+c
+            INTERRUPT = True
+            self.abort_jobs()
+            self.killall()
 
-    def kill(self, status="KILLED", th_kill=None):
+    def curses_kill(self):
         """interactive kill pid of ssh thread"""
-        if th_kill is None:
-            curses.echo()
-            addstrc(self.stdscr, curses.LINES - 1, 0, "kill job in thread: ")
-            try:
-                th_kill = int(self.stdscr.getstr())
-            except ValueError:
-                return
-            finally:
-                curses.noecho()
+        curses.echo()
+        addstrc(self.stdscr, curses.LINES - 1, 0, "kill job in thread: ")
         try:
-            os.kill(self.th_status[th_kill].pid, 15)
-            self.killedpid[self.th_status[th_kill].pid] = status
-            self.nbfailed += 1
-        except ProcessLookupError:
-            pass
+            th_id = int(self.stdscr.getstr())
+        except ValueError:
+            return
+        finally:
+            curses.noecho()
+        self.kill(th_id)
+
+    def kill(self, th_id, status="KILLED"):
+        """kill pid of thread id"""
+        th_status = self.th_status[th_id]
+        if th_status.pid > 0:
+            try:
+                os.kill(th_status.pid, signal.SIGINT)
+                self.killedpid[th_status.pid] = status
+            except ProcessLookupError:
+                pass
 
     def pause(self):
         """pause JobRun threads"""
@@ -623,14 +717,15 @@ class JobPrint(threading.Thread):
 
     def abort_jobs(self):
         """aborts remaining jobs"""
-        addstrc(self.stdscr, curses.LINES - 1, 0, "Cancel remaining jobs...")
-        self.stdscr.refresh()
+        if not jobq.qsize():
+            return
         while True:
             try:
                 job = jobq.get(block=False)
                 job.status.status = "ABORTED"
                 job.status.exit = 256
                 self.job_status.append(job.status)
+                self.jobstatuslog.addhost(job.host, "ABORTED")
                 jobq.task_done()
             except queue.Empty:
                 break
@@ -642,40 +737,33 @@ class JobPrint(threading.Thread):
         end = strftime("%X")
         total_dur = tdelta(seconds=round(time() - self.startsec))
         global_log = open(f"{self.dirlog}/ssh-para.log", "w", encoding="UTF-8")
-        if self.aborted:
-            print_tee(
-                "Cancelled hosts:", str(len(self.aborted)), file=global_log, color=Style.BRIGHT + Fore.RED
-            )
-            for host in self.aborted:
-                print_tee(host, file=global_log)
-                #self.nbjobs -= 1
         print_tee("", file=global_log)
         nbrun = 0
         for jstatus in self.job_status:
-            if jstatus.status != "ABORTED":
-                nbrun += 1
             if jstatus.exit != 0:
                 color = Style.BRIGHT + Fore.RED
             else:
                 color = Style.BRIGHT + Fore.GREEN
-            print_tee(f"{jstatus.status:8}:", color=color, file=global_log, end="")
-            print_tee(jstatus.host, color=Fore.YELLOW, file=global_log, end="")
-            print_tee(
-                f"exit: {jstatus.exit}",
-                f"dur: {tdelta(seconds=jstatus.duration)}",
-                f"{self.pdirlog}/{jstatus.host}.out",
-                file=global_log,
-            )
+            print_tee(f"{jstatus.status:8}:", color=color, file=global_log, end=" ")
+            print_tee(jstatus.host, color=Fore.YELLOW, file=global_log, end=" ")
+            if jstatus.status != "ABORTED":
+                nbrun += 1
+                print_tee(
+                    f"exit: {jstatus.exit}",
+                    f"dur: {tdelta(seconds=jstatus.duration)}",
+                    f"{self.pdirlog}/{jstatus.host}.out",
+                    file=global_log,
+                )
             print_tee(" ", jstatus.log, file=global_log)
         print_tee("command:", self.command, file=global_log)
         print_tee("log directory:", self.pdirlog, file=global_log)
         start = datetime.fromtimestamp(self.startsec).strftime("%Y-%m-%d %H:%M:%S")
         print_tee(
-            f"{nbrun}/{self.nbjobs} jobs run : Begin: {start}",
-            f"End: {end} Duration: {total_dur}",
+            f"{nbrun}/{self.nbjobs} jobs run : begin: {start}",
+            f"end: {end} dur: {total_dur}",
             file=global_log,
         )
-        printfile(f"{self.dirlog}/ssh-para.result", f"Begin: {start} End: {end} Dur: {total_dur} Runs: {nbrun}/{self.nbjobs} Failed: {self.nbfailed}")
+        print_tee(self.jobstatuslog.result(), file=global_log)
         if self.nbfailed == 0:
             print_tee("All Jobs with exit code 0", file=global_log)
         else:
@@ -685,6 +773,10 @@ class JobPrint(threading.Thread):
                 color=Style.BRIGHT + Fore.RED,
             )
         global_log.close()
+        printfile(
+            f"{self.dirlog}/ssh-para.result",
+            f"begin: {start} end: {end} dur: {total_dur} runs: {nbrun}/{self.nbjobs} {self.jobstatuslog.result()}",
+        )
 
 
 class Job:
@@ -728,7 +820,9 @@ class Job:
         self.status.duration = time() - self.status.start
         self.status.status = "SUCCESS" if pssh.returncode == 0 else "FAILED"
         printq.put(deepcopy(self.status))  # deepcopy to fix pb with object in queue
-        with open(f"{dirlog}/{self.host}.{self.status.status.lower()}", "w", encoding="UTF-8") as fstatus:
+        with open(
+            f"{dirlog}/{self.host}.{self.status.status.lower()}", "w", encoding="UTF-8"
+        ) as fstatus:
             print(
                 "EXIT CODE:",
                 self.status.exit,
@@ -751,7 +845,6 @@ class JobRun(threading.Thread):
 
     def run(self):
         """schedule Jobs / pause / resume"""
-        global INTERRUPT
         while True:
             pauseq.join()
             if INTERRUPT:
@@ -795,7 +888,7 @@ exit $e
 
 
 def get_hosts(hostsfile, hosts):
-    """returns hosts list from args host or reading hostfile"""
+    """returns hosts list from args host or reading hostsfile"""
     if hosts:
         return hosts
     if not hostsfile:
@@ -809,30 +902,38 @@ def get_hosts(hostsfile, hosts):
         sys.exit(1)
     return hosts
 
+
 def tstodatetime(ts):
+    """timestamp to datetime"""
     try:
         tsi = int(ts)
     except ValueError:
         return None
     return datetime.fromtimestamp(tsi).strftime("%Y-%m-%d %H:%M:%S")
 
+
 def printfile(file, text):
+    """try print text to file"""
     try:
-        with open(file, 'w', encoding="UTF-8") as fd:
+        with open(file, "w", encoding="UTF-8") as fd:
             print(text, file=fd)
     except OSError:
         return False
     return True
 
+
 def readfile(file):
+    """try read from file"""
     try:
-        with open(file, 'r', encoding="UTF-8") as fd:
+        with open(file, "r", encoding="UTF-8") as fd:
             text = fd.read()
     except OSError:
         return None
     return text.strip()
 
+
 def log_results(dirlog, job):
+    """print log results in dirlog/job"""
     if job:
         dirlog = f"{dirlog}/{job}"
     try:
@@ -841,33 +942,42 @@ def log_results(dirlog, job):
         print(f"no logs found in {dirlog}", file=sys.stderr)
         sys.exit(1)
     logdirs.sort()
-    for dir in logdirs:
-        result = readfile(f"{dirlog}/{dir}/ssh-para.result")
-        command = readfile(f"{dirlog}/{dir}/ssh-para.command")
+    for logid in logdirs:
+        result = readfile(f"{dirlog}/{logid}/ssh-para.result")
+        command = readfile(f"{dirlog}/{logid}/ssh-para.command")
         if command:
-            print(f"{hometilde(dirlog)}/{dir:10}:", result, "Command:", command)
+            homelogid = f"{hometilde(dirlog)}/{logid:10}:"
+            print(homelogid, result)
+            print(len(homelogid) * " ", command)
     sys.exit(0)
+
 
 def log_content(dirlog, wildcard):
     """print log file content in dirlog matching wildcard"""
-    files = glob(f"{dirlog}/{wildcard}")
+    dirpattern = f"{dirlog}/{wildcard}"
+    files = glob(dirpattern)
     files.sort()
     for logfile in files:
-        if wildcard.endswith(".success") or wildcard.endswith(".failed"):
+        if wildcard.split(".")[-1] in ["success", "failed"]:
             logfile = ".".join(logfile.split(".")[:-1]) + ".out"
-        prefix = logfile.split("/")[-1]
-        if not prefix.startswith("ssh-para"):
-            prefix = short_host(prefix[:-4])
+        prefix = ""
+        if len(files) > 1:
+            prefix = logfile.split("/")[-1]
+            if not prefix.startswith("ssh-para.") and not prefix.endswith("list."):
+                prefix = short_host(prefix[:-4])
+            prefix += ": "
         log = readfile(logfile)
         if log:
             log = log.splitlines()
-            for l in log:
-                print(f"{prefix}:", l.rstrip())
+            for line in log:
+                print(prefix + line.rstrip())
             print()
 
-def isdir(dir):
+
+def isdir(directory):
+    """test dir exits"""
     try:
-        if os.path.isdir(dir):
+        if os.path.isdir(directory):
             return True
     except OSError:
         return False
@@ -875,15 +985,16 @@ def isdir(dir):
 
 
 def get_latest_dir(dirlog):
+    """retrieve last log dir"""
     try:
         dirs = glob(f"{dirlog}/[0-9]*")
     except OSError:
         print(f"Error: ssh-para: no log directory found in {dirlog}", file=sys.stderr)
         sys.exit(1)
     dirs.sort()
-    for dir in dirs[::-1]:
-        if isdir(dir):
-            return dir
+    for directory in dirs[::-1]:
+        if isdir(directory):
+            return directory
     print(f"no log directory found in {dirlog}")
     sys.exit(1)
 
@@ -906,7 +1017,7 @@ def log_contents(wildcards, dirlog, job):
 
 
 def make_latest(dirlog, dirlogtime):
-    """ make symlink to last log directory"""
+    """make symlink to last log directory"""
     latest = f"{dirlog}/latest"
     try:
         if os.path.exists(latest):
@@ -940,10 +1051,14 @@ def main():
     init(autoreset=True)
     args = parse_args()
     if args.version:
-        print(f"ssh-para: {__version__}")
+        print(f"ssh-para: v{__version__}")
         sys.exit(0)
+    if args.completion:
+        shell_argcomplete(args.completion)
     if args.maxdots:
         MAX_DOTS = args.maxdots
+    if MAX_DOTS == -1:
+        MAX_DOTS = None
     if args.list:
         log_results(args.dirlog, args.job)
     if args.logs:
@@ -958,15 +1073,22 @@ def main():
     if not args.ssh_args:
         print("ERROR: ssh-para: No ssh command supplied", file=sys.stderr)
         sys.exit(1)
+    if args.hostsfile:
+        hostsfile = os.path.basename(args.hostsfile)
+    else:
+        hostsfile = "parameter"
     hosts = get_hosts(args.hostsfile, args.hosts)
     dirlog = make_logdir(args.dirlog, args.job)
-    printfile(f"{dirlog}/ssh-para.command", " ".join(command))
-    printfile(f"{dirlog}/ssh-para.hosts_input", "\n".join(hosts))
+    printfile(
+        f"{dirlog}/ssh-para.command",
+        f"Hostsfile: {hostsfile} Command: {" ".join(command)}",
+    )
+    printfile(f"{dirlog}/hosts_input.list", "\n".join(hosts))
     if args.resolve:
         print("Notice: ssh-para: Resolving hosts...", file=sys.stderr)
         hosts = resolve_hosts(hosts, DNS_DOMAINS.split())
         print("Notice: ssh-para: Resolve done", file=sys.stderr)
-    printfile(f"{dirlog}/ssh-para.hosts", "\n".join(hosts))
+    printfile(f"{dirlog}/hosts.list", "\n".join(hosts))
     max_len = 0
     for host in hosts:
         max_len = max(max_len, len(short_host(host)))
@@ -975,15 +1097,17 @@ def main():
         jobq.put(Job(host=host, command=args.ssh_args))
     parallel = min(len(hosts), args.parallel)
     signal.signal(signal.SIGINT, sigint_handler)
+    signal.signal(signal.SIGPIPE, sigint_handler)
     p = JobPrint(
         command, parallel, len(hosts), dirlog, args.timeout, args.verbose, max_len
     )
     p.start()
+    jobruns = []
     for i in range(parallel):
         if jobq.qsize() == 0:
             break
-        t = JobRun(i, dirlog=dirlog)
-        t.start()
+        jobruns.append(JobRun(i, dirlog=dirlog))
+        jobruns[i].start()
         sleep(args.delay)
 
     jobq.join()

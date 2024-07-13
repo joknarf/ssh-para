@@ -22,54 +22,77 @@ pip install ssh-para
 ```
 By default, `ssh-para` uses Nerd Fonts glyphs, modern terminals can now render the glyphs without installing specific font (the symbols can be overridden with SSHP_SYM_* environment variables, see below)
 
+# quick start
+
+```
+Run command on multiple hosts:
+$ ssh-para -H host1 host2 host3 -- echo connection ok
+Review last run results:
+$ ssh-para -l
+Review hosts statuses for last run:
+$ ssh-para -L *.status
+View failed hosts list:
+$ ssh-para -L failed.status
+Show output of command on all hosts:
+$ ssh-para -L *.out
+Show output of command for failed hosts:
+$ ssh-para -L *.failed
+Show output of command for host1:
+$ ssh-para -L host1.out
+```
+
 # usage
 ```
 ssh-para -h
 ```
 ```
-usage: ssh_para.py [-h] [-p PARALLEL] [-j JOB] [-d DIRLOG] [-f HOSTSFILE | -H HOSTS [HOSTS ...]] 
-                   [-D DELAY] [-s SCRIPT] [-a ARGS [ARGS ...]] [-t TIMEOUT] [-r] [-v] [-l]
-                   [-L [LOGS ...]] [-m MAXDOTS] [-V]
-                   [ssh_args ...]
+usage: ssh-para [-h] [-V] [-j JOB] [-d DIRLOG] [-m MAXDOTS] [-p PARALLEL] [-t TIMEOUT] [-r] [-v] [-D DELAY]
+                [-f HOSTSFILE | -H HOSTS [HOSTS ...] | -C {bash,zsh,powershell} | -l | -L LOGS [LOGS ...]] [-s SCRIPT]
+                [-a ARGS [ARGS ...]]
+                [ssh_args ...]
 
-ssh-para vX.X.X
+ssh-para v1.ssh-para.dev
 
 positional arguments:
   ssh_args
 
 options:
   -h, --help            show this help message and exit
-  -p PARALLEL, --parallel PARALLEL
-                        parallelism (default 4)
+  -V, --version         ssh-para version
   -j JOB, --job JOB     Job name added subdir to dirlog
   -d DIRLOG, --dirlog DIRLOG
-                        directory for ouput log files (~/.ssh-para)
-  -f HOSTSFILE, --hostsfile HOSTSFILE
-                        hosts list file
-  -H HOSTS [HOSTS ...], --hosts HOSTS [HOSTS ...]
-                        hosts list
-  -D DELAY, --delay DELAY
-                        initial delay in seconds between ssh commands (default=0.3s)
-  -s SCRIPT, --script SCRIPT
-                        script to execute
-  -a ARGS [ARGS ...], --args ARGS [ARGS ...]
-                        script arguments
+                        directory for ouput log files (default: ~/.ssh-para)
+  -m MAXDOTS, --maxdots MAXDOTS
+                        hostname domain displaylevel (default:1 => short hostname, -1 => fqdn)
+  -p PARALLEL, --parallel PARALLEL
+                        parallelism (default 4)
   -t TIMEOUT, --timeout TIMEOUT
                         timeout of each job
   -r, --resolve         resolve fqdn in SSHP_DOMAINS
   -v, --verbose         verbose display (fqdn + line for last output)
+  -D DELAY, --delay DELAY
+                        initial delay in seconds between ssh commands (default=0.3s)
+  -f HOSTSFILE, --hostsfile HOSTSFILE
+                        hosts list file
+  -H HOSTS [HOSTS ...], --hosts HOSTS [HOSTS ...]
+                        hosts list
+  -C {bash,zsh,powershell}, --completion {bash,zsh,powershell}
+                        autocompletion shell code to source
   -l, --list            list ssh-para results/log directories
-  -L [LOGS ...], --logs [LOGS ...]
-                        get latest/current ssh-para run logs 
-                        -L=*         : all logs
-                        -L=*.out     : all hosts outputs 
-                        -L=*.success : output of success hosts
-                        -L=*.failed  : output of failed hosts
-                        -L=<host>.*  : logs for host
-                        -L <logid>/* : logs for logid (from ssh-para --list)
-  -m MAXDOTS, --maxdots MAXDOTS
-                        hostname domain displaylevel (default:0 => short hostname)
-  -V, --version         ssh-para version
+  -L LOGS [LOGS ...], --logs LOGS [LOGS ...]
+                        get latest/current ssh-para run logs
+                        -L[<runid>/]*.out          : all hosts outputs
+                        -L[<runid>/]<host>.out     : command output of host
+                        -L[<runid>/]*.<status>     : command output of hosts <status>
+                        -L[<runid>/]*.status       : hosts lists with status
+                        -L[<runid>/]<status>.status: <status> hosts list
+                        -L[<runid>/]hosts.list     : list of hosts used to connect (resolved if -r)
+                        default <runid> is latest ssh-para run (use -j <job> -d <dir> to access logs if used for run)
+                        <status>: [success,failed,timeout,killed,aborted]
+  -s SCRIPT, --script SCRIPT
+                        script to execute
+  -a ARGS [ARGS ...], --args ARGS [ARGS ...]
+                        script arguments
 ```    
 During run, use :
 * k: to kill ssh command held by a thread (but remote command can still be running on remote host)
