@@ -1081,7 +1081,7 @@ def main():
     dirlog = make_logdir(args.dirlog, args.job)
     printfile(
         f"{dirlog}/ssh-para.command",
-        f"Hostsfile: {hostsfile} Command: {" ".join(command)}",
+        f"Hostsfile: {hostsfile} Command: {' '.join(command)}",
     )
     printfile(f"{dirlog}/hosts_input.list", "\n".join(hosts))
     if args.resolve:
