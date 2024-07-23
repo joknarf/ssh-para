@@ -220,7 +220,7 @@ def resolve_hosts(hosts: list, domains: list) -> list:
     return [resolve(host, domains) for host in hosts]
 
 
-def addstr(stdscr: Optional['curses._CursesWindow'], *args, **kwargs) -> None:
+def addstr(stdscr: Optional["curses._CursesWindow"], *args, **kwargs) -> None:
     """curses addstr w/o exception"""
     if stdscr:
         try:
@@ -229,7 +229,7 @@ def addstr(stdscr: Optional['curses._CursesWindow'], *args, **kwargs) -> None:
             pass
 
 
-def addstrc(stdscr: Optional['curses._CursesWindow'], *args, **kwargs) -> None:
+def addstrc(stdscr: Optional["curses._CursesWindow"], *args, **kwargs) -> None:
     """curses addstr and clear eol"""
     if stdscr:
         addstr(stdscr, *args, **kwargs)
@@ -241,7 +241,9 @@ def tdelta(*args, **kwargs) -> str:
     return str(timedelta(*args, **kwargs)).split(".", maxsplit=1)[0]
 
 
-def print_tee(*args, file: Optional[TextIOWrapper] = None, color: str = "", **kwargs) -> None:
+def print_tee(
+    *args, file: Optional[TextIOWrapper] = None, color: str = "", **kwargs
+) -> None:
     """print stdout + file"""
     print(" ".join([color] + list(args)), file=sys.stderr, **kwargs)
     if file:
@@ -256,7 +258,7 @@ def decode_line(line: bytes) -> str:
         return ""
 
 
-def last_line(fd: BufferedReader, maxline: int =1000) -> str:
+def last_line(fd: BufferedReader, maxline: int = 1000) -> str:
     """last non empty line of file"""
     line = "\n"
     fd.seek(0, os.SEEK_END)
@@ -287,7 +289,7 @@ class Segment:
 
     def __init__(
         self,
-        stdscr: 'curses._CursesWindow',
+        stdscr: "curses._CursesWindow",
         nbsegments: int,
         bg: Optional[list] = None,
         fg: Optional[list] = None,
@@ -541,7 +543,9 @@ class JobPrint(threading.Thread):
                 duration = time() - jstatus.start
                 self.check_timeout(i, duration)
 
-    def print_status(self, status: str, duration: float =0, avgjobdur: float =0) -> None:
+    def print_status(
+        self, status: str, duration: float = 0, avgjobdur: float = 0
+    ) -> None:
         """print thread status"""
         color = self.status_color[status]
         addstr(self.stdscr, SYMBOL_BEGIN, curses.color_pair(color + 1))
@@ -574,7 +578,9 @@ class JobPrint(threading.Thread):
             )
             addstrc(self.stdscr, jstatus.log)
 
-    def display_curses(self, status_id: Optional[int], total_dur: str, jobsdur, nbsshjobs) -> None:
+    def display_curses(
+        self, status_id: Optional[int], total_dur: str, jobsdur, nbsshjobs
+    ) -> None:
         """display threads statuses"""
         assert self.stdscr is not None
         nbend = len(self.job_status)
@@ -997,7 +1003,7 @@ def get_latest_dir(dirlog: str) -> str:
     sys.exit(1)
 
 
-def log_contents(wildcards: list, dirlog:str, job: str):
+def log_contents(wildcards: list, dirlog: str, job: str):
     """print logs content according to wildcards *.out *.success..."""
     if job:
         dirlog += f"/{job}"
