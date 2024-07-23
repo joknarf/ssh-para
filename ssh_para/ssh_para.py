@@ -12,6 +12,7 @@ import signal
 import threading
 import queue
 import curses
+from typing import Optional
 from glob import glob
 from re import sub, escape
 from socket import gethostbyname_ex, gethostbyaddr, inet_aton
@@ -37,7 +38,7 @@ DNS_DOMAINS = os.environ.get("SSHP_DOMAINS") or ""
 SSH_OPTS = os.environ.get("SSHP_OPTS") or ""
 MAX_DOTS = int(os.environ.get("SSHP_MAX_DOTS") or 1)
 INTERRUPT = False
-
+EXIT_CODE = 0
 jobq = queue.Queue()
 printq = queue.Queue()
 pauseq = queue.Queue()
@@ -48,7 +49,7 @@ def shell_argcomplete(shell="bash"):
     . <(ssh-para -C bash)
     ssh-para -C powershell | Out-String | Invoke-Expression
     """
-    print(argcomplete.shellcode(["ssh-para"], shell=shell))
+    print(argcomplete.shell_integration.shellcode(["ssh-para"], shell=shell))
     sys.exit(0)
 
 
@@ -144,7 +145,7 @@ def parse_args():
 default <runid> is latest ssh-para run (use -j <job> -d <dir> to access logs if used for run)
 <status>: [success,failed,timeout,killed,aborted]
 """,
-    ).completer = log_choices
+    ).completer = log_choices # type: ignore
 
     parser.add_argument("-s", "--script", help="script to execute")
     parser.add_argument("-a", "--args", nargs="+", help="script arguments")
@@ -333,11 +334,11 @@ class JobStatus:
     shorthost: str = ""
     duration: float = 0
     pid: int = -1
-    exit: int|None = None
+    exit: Optional[int] = None
     logfile: str = ""
     log: str = ""
     thread_id: int = -1
-    fdlog: BufferedReader|None = None
+    fdlog: Optional[BufferedReader] = None
 
 
 class JobStatusLog:
@@ -347,7 +348,7 @@ class JobStatusLog:
     class LogStatus:
         """fd log/count status"""
 
-        fd: TextIOWrapper|None = None
+        fd: Optional[TextIOWrapper] = None
         nb: int = 0
 
     def __init__(self, dirlog):
@@ -415,7 +416,7 @@ class JobPrint(threading.Thread):
         self.dirlog = dirlog
         self.aborted = []
         self.startsec = time()
-        self.stdscr: curses._CursesWindow|None = None
+        self.stdscr: Optional[curses._CursesWindow] = None
         self.paused = False
         self.timeout = timeout
         self.verbose = verbose
@@ -462,13 +463,6 @@ class JobPrint(threading.Thread):
         curses.init_pair(self.COLOR_GAUGE, 8, curses.COLOR_BLUE)
         curses.init_pair(self.COLOR_HOST, curses.COLOR_YELLOW, curses.COLOR_BLACK)
 
-    def join(self, timeout=None) -> int:
-        """returns nb failed"""
-        super().join(timeout)
-        if INTERRUPT:
-            return 130
-        return self.nbfailed > 0
-
     def killall(self):
         """kill all running threads pid"""
         for status in self.th_status:
@@ -483,7 +477,7 @@ class JobPrint(threading.Thread):
             if INTERRUPT:
                 self.abort_jobs()
             try:
-                jstatus: JobStatus|None = printq.get(timeout=0.1)
+                jstatus: Optional[JobStatus] = printq.get(timeout=0.1)
             except queue.Empty:
                 jstatus = None
             th_id = None
@@ -524,6 +518,8 @@ class JobPrint(threading.Thread):
             if len(self.job_status) == self.nbjobs:
                 break
         self.resume()
+        global EXIT_CODE
+        EXIT_CODE = 130 if INTERRUPT else (self.nbfailed>0)
         if self.stdscr:
             addstrc(self.stdscr, curses.LINES - 1, 0, "All jobs finished")
             self.stdscr.refresh()
@@ -583,6 +579,7 @@ class JobPrint(threading.Thread):
 
     def display_curses(self, status_id, total_dur, jobsdur, nbsshjobs):
         """display threads statuses"""
+        assert self.stdscr is not None
         nbend = len(self.job_status)
         last_start = 0
         avgjobdur = 0
@@ -641,6 +638,7 @@ class JobPrint(threading.Thread):
     def get_key(self):
         """manage interactive actions"""
         global INTERRUPT
+        assert self.stdscr is not None
         self.stdscr.nodelay(True)
         ch = self.stdscr.getch()
         self.stdscr.nodelay(False)
@@ -661,6 +659,7 @@ class JobPrint(threading.Thread):
     def curses_kill(self):
         """interactive kill pid of ssh thread"""
         curses.echo()
+        assert self.stdscr is not None
         addstrc(self.stdscr, curses.LINES - 1, 0, "kill job in thread: ")
         try:
             th_id = int(self.stdscr.getstr())
@@ -695,6 +694,7 @@ class JobPrint(threading.Thread):
 
     def print_finished(self, line_num):
         """display finished jobs"""
+        assert self.stdscr is not None
         addstr(self.stdscr, curses.LINES - 1, 0, "")
         inter = self.verbose + 1
         for jstatus in self.job_status[::-1]:
@@ -1115,8 +1115,8 @@ def main():
         sleep(args.delay)
 
     jobq.join()
-    exit_code = p.join()
-    sys.exit(exit_code)
+    p.join()
+    sys.exit(EXIT_CODE)
 
 
 if __name__ == "__main__":
