@@ -19,6 +19,7 @@ from shlex import quote
 from time import time, strftime, sleep
 from datetime import timedelta, datetime
 from subprocess import Popen, DEVNULL
+from io import BufferedReader, TextIOWrapper
 from argparse import ArgumentParser, RawTextHelpFormatter
 from dataclasses import dataclass
 from copy import deepcopy
@@ -327,16 +328,16 @@ class JobStatus:
     """handle job statuses"""
 
     status: str = "IDLE"
-    start: str = ""
+    start: float = 0
     host: str = ""
     shorthost: str = ""
-    duration: int = 0
+    duration: float = 0
     pid: int = -1
-    exit: int = None
+    exit: int|None = None
     logfile: str = ""
     log: str = ""
     thread_id: int = -1
-    fdlog: int = 0
+    fdlog: BufferedReader|None = None
 
 
 class JobStatusLog:
@@ -346,7 +347,7 @@ class JobStatusLog:
     class LogStatus:
         """fd log/count status"""
 
-        fd: int = 0
+        fd: TextIOWrapper|None = None
         nb: int = 0
 
     def __init__(self, dirlog):
@@ -414,7 +415,7 @@ class JobPrint(threading.Thread):
         self.dirlog = dirlog
         self.aborted = []
         self.startsec = time()
-        self.stdscr = None
+        self.stdscr: curses._CursesWindow|None = None
         self.paused = False
         self.timeout = timeout
         self.verbose = verbose
@@ -461,9 +462,9 @@ class JobPrint(threading.Thread):
         curses.init_pair(self.COLOR_GAUGE, 8, curses.COLOR_BLUE)
         curses.init_pair(self.COLOR_HOST, curses.COLOR_YELLOW, curses.COLOR_BLACK)
 
-    def join(self, *args):
+    def join(self, timeout=None) -> int:
         """returns nb failed"""
-        super().join(*args)
+        super().join(timeout)
         if INTERRUPT:
             return 130
         return self.nbfailed > 0
@@ -482,7 +483,7 @@ class JobPrint(threading.Thread):
             if INTERRUPT:
                 self.abort_jobs()
             try:
-                jstatus: JobStatus = printq.get(timeout=0.1)
+                jstatus: JobStatus|None = printq.get(timeout=0.1)
             except queue.Empty:
                 jstatus = None
             th_id = None
@@ -492,7 +493,7 @@ class JobPrint(threading.Thread):
                 jstatus.log = last_line(jstatus.fdlog)
                 if jstatus.exit is not None:  # FINISHED
                     jstatus.fdlog.close()
-                    jstatus.fdlog = 0
+                    jstatus.fdlog = None
                     nbsshjobs += 1
                     jobsdur += jstatus.duration
                     if jstatus.status == "FAILED":
@@ -1071,7 +1072,7 @@ def main():
     else:
         command = args.ssh_args
     if not args.ssh_args:
-        print("ERROR: ssh-para: No ssh command supplied", file=sys.stderr)
+        print("Error: ssh-para: No ssh command supplied", file=sys.stderr)
         sys.exit(1)
     if args.hostsfile:
         hostsfile = os.path.basename(args.hostsfile)
