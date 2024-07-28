@@ -21,7 +21,7 @@ from time import time, strftime, sleep
 from datetime import timedelta, datetime
 from subprocess import Popen, DEVNULL
 from io import BufferedReader, TextIOWrapper
-from argparse import ArgumentParser, RawTextHelpFormatter
+from argparse import ArgumentParser, Namespace, RawTextHelpFormatter
 from dataclasses import dataclass
 from copy import deepcopy
 import argcomplete
@@ -73,7 +73,7 @@ def log_choices(**kwargs) -> tuple:
     )
 
 
-def parse_args():
+def parse_args() -> Namespace:
     """argument parse"""
     if len(sys.argv) == 1:
         sys.argv.append("-h")
