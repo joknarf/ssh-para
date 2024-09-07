@@ -900,7 +900,7 @@ def get_hosts(hostsfile: str, hosts: list) -> list:
         sys.exit(1)
     try:
         with open(hostsfile, "r", encoding="UTF-8") as fhosts:
-            hosts = fhosts.read().splitlines()
+            hosts = list(filter(len, fhosts.read().splitlines()))
     except OSError:
         print(f"ERROR: ssh-para: Cannot open {hostsfile}", file=sys.stderr)
         sys.exit(1)
