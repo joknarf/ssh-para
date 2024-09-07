@@ -263,9 +263,9 @@ def last_line(fd: BufferedReader, maxline: int = 1000) -> str:
     line = "\n"
     fd.seek(0, os.SEEK_END)
     size = 0
-    while line == "\n" and size < maxline:
+    while line in ["\n", "\r"] and size < maxline:
         try:  # catch if file empty / only empty lines
-            while fd.read(1) != b"\n":
+            while fd.read(1) not in [b"\n", b"\r"]:
                 fd.seek(-2, os.SEEK_CUR)
                 size += 1
         except OSError:
