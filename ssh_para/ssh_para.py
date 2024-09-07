@@ -263,9 +263,9 @@ def last_line(fd: BufferedReader, maxline: int = 1000) -> str:
     line = "\n"
     fd.seek(0, os.SEEK_END)
     size = 0
-    while line == "\n" and size < maxline:
+    while line in ["\n", "\r"] and size < maxline:
         try:  # catch if file empty / only empty lines
-            while fd.read(1) != b"\n":
+            while fd.read(1) not in [b"\n", b"\r"]:
                 fd.seek(-2, os.SEEK_CUR)
                 size += 1
         except OSError:
@@ -562,7 +562,7 @@ class JobPrint(threading.Thread):
         addstr(self.stdscr, f" {tdelta(seconds=round(duration))}")
 
     def print_job(self, line_num: int, jstatus, duration: float, avgjobdur: float):
-        """print host runnin on thread and last out line"""
+        """print host running on thread and last out line"""
         th_id = str(jstatus.thread_id).zfill(2)
         addstr(self.stdscr, line_num, 0, f" {th_id} ")
         self.print_status(jstatus.status, duration, avgjobdur)
@@ -576,7 +576,7 @@ class JobPrint(threading.Thread):
                 f"{jstatus.shorthost:{self.maxhostlen}} {SYMBOL_RES} ",
                 curses.color_pair(self.COLOR_HOST),
             )
-            addstrc(self.stdscr, jstatus.log)
+            addstrc(self.stdscr, jstatus.log[: curses.COLS - self.stdscr.getyx()[1]])
 
     def display_curses(
         self, status_id: Optional[int], total_dur: str, jobsdur, nbsshjobs
@@ -629,7 +629,8 @@ class JobPrint(threading.Thread):
                 f"ETA: {estimated}",
             ],
         )
-        addstrc(self.stdscr, 1, 0, f" Dirlog: {self.pdirlog} Command: {self.command}")
+        addstr(self.stdscr, 1, 0, f" Dirlog: {self.pdirlog} Command: ")
+        addstrc(self.stdscr, self.command[: curses.COLS - self.stdscr.getyx()[1]])
         addstrc(self.stdscr, 2, 0, "")
         self.print_finished(line_num + (nbrun > 0))
         if self.paused:
@@ -715,7 +716,9 @@ class JobPrint(threading.Thread):
                     f"{jstatus.shorthost:{self.maxhostlen}} {SYMBOL_RES} ",
                     curses.color_pair(self.COLOR_HOST),
                 )
-                addstrc(self.stdscr, jstatus.log)
+                addstrc(
+                    self.stdscr, jstatus.log[: curses.COLS - self.stdscr.getyx()[1]]
+                )
             line_num += inter
         self.stdscr.clrtobot()
 
