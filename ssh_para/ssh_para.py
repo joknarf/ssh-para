@@ -412,6 +412,7 @@ class JobPrint(threading.Thread):
         super().__init__()
         self.th_status = [JobStatus() for i in range(nbthreads)]
         self.command = " ".join(command)
+        self.cmd = self.command.replace("\n","\\n") 
         self.job_status = []
         self.nbthreads = nbthreads
         self.nbfailed = 0
@@ -630,7 +631,7 @@ class JobPrint(threading.Thread):
             ],
         )
         addstr(self.stdscr, 1, 0, f" Dirlog: {self.pdirlog} Command: ")
-        addstrc(self.stdscr, self.command[: curses.COLS - self.stdscr.getyx()[1]])
+        addstrc(self.stdscr, self.cmd[: curses.COLS - self.stdscr.getyx()[1]])
         addstrc(self.stdscr, 2, 0, "")
         self.print_finished(line_num + (nbrun > 0))
         if self.paused:
