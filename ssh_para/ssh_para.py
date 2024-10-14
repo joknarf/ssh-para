@@ -137,8 +137,8 @@ def parse_args() -> Namespace:
         nargs="+",
         help="""get latest/current ssh-para run logs
 -L[<runid>/]*.out          : all hosts outputs
+-L[<runid>/]*.status.out   : all success host outputs
 -L[<runid>/]<host>.out     : command output of host
--L[<runid>/]*.<status>     : command output of hosts <status>
 -L[<runid>/]*.status       : hosts lists with status
 -L[<runid>/]<status>.status: <status> hosts list
 -L[<runid>/]hosts.list     : list of hosts used to connect (resolved if -r)
@@ -412,7 +412,7 @@ class JobPrint(threading.Thread):
         super().__init__()
         self.th_status = [JobStatus() for i in range(nbthreads)]
         self.command = " ".join(command)
-        self.cmd = self.command.replace("\n","\\n") 
+        self.cmd = self.command.replace("\n", "\\n")
         self.job_status = []
         self.nbthreads = nbthreads
         self.nbfailed = 0
@@ -506,6 +506,10 @@ class JobPrint(threading.Thread):
                             jstatus.exit = 256
                     self.jobstatuslog.addhost(jstatus.host, jstatus.status)
                     self.job_status.append(jstatus)
+                    os.rename(
+                        jstatus.logfile,
+                        f"{os.path.splitext(jstatus.logfile)[0]}.{jstatus.status.lower()}.out",
+                    )
                 self.th_status[jstatus.thread_id] = jstatus
                 if not self.stdscr:
                     try:
@@ -759,7 +763,7 @@ class JobPrint(threading.Thread):
                 print_tee(
                     f"exit: {jstatus.exit}",
                     f"dur: {tdelta(seconds=jstatus.duration)}",
-                    f"{self.pdirlog}/{jstatus.host}.out",
+                    f"{self.pdirlog}/{jstatus.host}.{jstatus.status.lower()}.out",
                     file=global_log,
                 )
             print_tee(" ", jstatus.log, file=global_log)
@@ -966,8 +970,6 @@ def log_content(dirlog: str, wildcard: str) -> None:
     files = glob(dirpattern)
     files.sort()
     for logfile in files:
-        if wildcard.split(".")[-1] in ["success", "failed"]:
-            logfile = ".".join(logfile.split(".")[:-1]) + ".out"
         prefix = ""
         if len(files) > 1:
             prefix = logfile.split("/")[-1]
