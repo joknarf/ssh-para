@@ -415,7 +415,7 @@ class JobPrint(threading.Thread):
         super().__init__()
         self.th_status = [JobStatus() for i in range(nbthreads)]
         self.command = " ".join(command)
-        self.cmd = self.command.replace("\n","\\n") 
+        self.cmd = self.command.replace("\n", "\\n")
         self.job_status = []
         self.nbthreads = nbthreads
         self.nbfailed = 0
@@ -807,9 +807,7 @@ class Job:
         if self.resolve:
             host = resolve(host, DNS_DOMAINS)
         jobcmd = (
-            ["ssh", host, "-T", "-n", "-o", "BatchMode=yes"]
-            + SSH_OPTS
-            + self.command
+            ["ssh", host, "-T", "-n", "-o", "BatchMode=yes"] + SSH_OPTS + self.command
         )
         printfile(f"{dirlog}/{self.host}.ssh", jobcmd)
         self.status.logfile = f"{dirlog}/{self.host}.out"
