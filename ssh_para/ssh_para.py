@@ -15,7 +15,7 @@ import curses
 from typing import Optional
 from glob import glob
 from re import sub, escape
-from socket import gethostbyname_ex, gethostbyaddr, inet_aton
+from socket import gethostbyname_ex, gethostbyaddr, inet_aton, inet_ntoa
 from shlex import quote
 from time import time, strftime, sleep
 from datetime import timedelta, datetime
@@ -39,6 +39,10 @@ SSH_OPTS = os.environ.get("SSHP_OPTS") or ""
 MAX_DOTS = int(os.environ.get("SSHP_MAX_DOTS") or 1)
 INTERRUPT = False
 EXIT_CODE = 0
+
+DNS_DOMAINS = DNS_DOMAINS.split()
+SSH_OPTS = SSH_OPTS.split()
+
 jobq = queue.Queue()
 printq = queue.Queue()
 pauseq = queue.Queue()
@@ -185,16 +189,15 @@ def resolve_in_domains(host: str, domains: list) -> str:
         fqdn = resolve_hostname(f"{host}.{domain}")
         if fqdn:
             return fqdn
-    print(f"Warning: ssh-para: cannot resolve {host}", file=sys.stderr)
     return host
 
 
 def resolve_ip(ip: str) -> str:
     """try resolve hostname by reverse dns query on ip addr"""
+    ip = inet_ntoa(inet_aton(ip))
     try:
         host = gethostbyaddr(ip)
     except OSError:
-        print(f"Warning: ssh-para: cannot resolve {ip}", file=sys.stderr)
         return ip
     return host[0]
 
@@ -412,7 +415,7 @@ class JobPrint(threading.Thread):
         super().__init__()
         self.th_status = [JobStatus() for i in range(nbthreads)]
         self.command = " ".join(command)
-        self.cmd = self.command.replace("\n","\\n") 
+        self.cmd = self.command.replace("\n", "\\n")
         self.job_status = []
         self.nbthreads = nbthreads
         self.nbfailed = 0
@@ -790,26 +793,29 @@ class JobPrint(threading.Thread):
 class Job:
     """manage job execution"""
 
-    def __init__(self, host: str, command: list):
+    def __init__(self, host: str, command: list, resolve: bool):
         """job to run on host init"""
         self.host = host
         self.command = command
         self.status = JobStatus(host=host, shorthost=short_host(host))
+        self.resolve = resolve
 
     def exec(self, th_id: int, dirlog: str) -> None:
         """run command on host using ssh"""
-        self.status.start = time()
         self.status.thread_id = th_id
+        host = self.host
+        if self.resolve:
+            host = resolve(host, DNS_DOMAINS)
         jobcmd = (
-            ["ssh", self.host, "-T", "-n", "-o", "BatchMode=yes"]
-            + SSH_OPTS.split()
-            + self.command
+            ["ssh", host, "-T", "-n", "-o", "BatchMode=yes"] + SSH_OPTS + self.command
         )
+        printfile(f"{dirlog}/{self.host}.ssh", jobcmd)
         self.status.logfile = f"{dirlog}/{self.host}.out"
         if dirlog:
             fdout = open(self.status.logfile, "w", encoding="UTF-8", buffering=1)
         else:
             fdout = sys.stdout
+        self.status.start = time()
         pssh = Popen(
             jobcmd,
             bufsize=0,
@@ -1091,18 +1097,13 @@ def main() -> None:
         f"{dirlog}/ssh-para.command",
         f"Hostsfile: {hostsfile} Command: {' '.join(command)}",
     )
-    printfile(f"{dirlog}/hosts_input.list", "\n".join(hosts))
-    if args.resolve:
-        print("Notice: ssh-para: Resolving hosts...", file=sys.stderr)
-        hosts = resolve_hosts(hosts, DNS_DOMAINS.split())
-        print("Notice: ssh-para: Resolve done", file=sys.stderr)
     printfile(f"{dirlog}/hosts.list", "\n".join(hosts))
     max_len = 0
     for host in hosts:
         max_len = max(max_len, len(short_host(host)))
 
     for host in hosts:
-        jobq.put(Job(host=host, command=args.ssh_args))
+        jobq.put(Job(host=host, command=args.ssh_args, resolve=args.resolve))
     parallel = min(len(hosts), args.parallel)
     signal.signal(signal.SIGINT, sigint_handler)
     try:
