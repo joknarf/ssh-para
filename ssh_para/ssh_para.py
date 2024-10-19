@@ -376,7 +376,7 @@ class JobStatusLog:
 
     def result(self) -> str:
         """print counts of statuses"""
-        return " ".join([f"{s.lower()}: {v.nb}" for s, v in self.lstatus.items()])
+        return " - ".join([f"{s.lower()}: {v.nb}" for s, v in self.lstatus.items()])
 
     def __del__(self):
         for s in self.lstatus.values():
