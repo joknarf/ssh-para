@@ -908,6 +908,8 @@ def get_hosts(hostsfile: str, hosts: list) -> list:
     if not hostsfile:
         print("ERROR: ssh-para: No hosts definition", file=sys.stderr)
         sys.exit(1)
+    if hostsfile == "-":
+        return list(filter(len, sys.stdin.read().splitlines()))
     try:
         with open(hostsfile, "r", encoding="UTF-8") as fhosts:
             hosts = list(filter(len, fhosts.read().splitlines()))
