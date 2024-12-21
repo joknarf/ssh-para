@@ -13,6 +13,8 @@ Parallel SSH jobs manager CLI (alternative to parallel-ssh)
 * Keep all output in log files
 * Interactive pause/resume/abort jobs, kill stuck ssh connection interactively.
 
+Take a look at [run-para](https://github.com/joknarf/run-para) if you need to run parallel jobs parameterized
+
 ![ssh-para3](https://github.com/joknarf/ssh-para/assets/10117818/aef84de2-d15c-44f6-b6ff-74dc5f6f7b08)
 
 
