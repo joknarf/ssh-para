@@ -433,7 +433,6 @@ class JobPrint(threading.Thread):
         self.jobstatuslog = JobStatusLog(dirlog)
         if sys.stdout.isatty():
             self.init_curses()
-        super().__init__()
 
     def __del__(self) -> None:
         self.print_summary()
@@ -785,8 +784,8 @@ class JobPrint(threading.Thread):
             )
         global_log.close()
         printfile(
-            f"{self.dirlog}/ssh-para.result",
             f"begin: {start} end: {end} dur: {total_dur} runs: {nbrun}/{self.nbjobs} {self.jobstatuslog.result()}",
+            file=f"{self.dirlog}/ssh-para.result",
         )
 
 
@@ -800,50 +799,55 @@ class Job:
         self.status = JobStatus(host=host, shorthost=short_host(host))
         self.resolve = resolve
 
+    def run(self, fdout: TextIOWrapper, dirlog: str) -> None:
+        try:
+            pssh = Popen(
+                self.jobcmd,
+                bufsize=0,
+                encoding="UTF-8",
+                stdout=fdout,
+                stderr=fdout,
+                stdin=DEVNULL,
+                close_fds=True,
+            )
+            self.status.status = "RUNNING"
+            self.status.pid = pssh.pid
+            printq.put(deepcopy(self.status))  # deepcopy to fix pb with object in queue
+            pssh.wait()
+            self.update_status(pssh.returncode, dirlog)
+        except Exception as e:
+            self.status.status = "ERROR"
+            print(e, file=fdout)
+            printq.put(deepcopy(self.status))
+            self.update_status(-1, dirlog)
+
     def exec(self, th_id: int, dirlog: str) -> None:
         """run command on host using ssh"""
         self.status.thread_id = th_id
         host = self.host
         if self.resolve:
             host = resolve(host, DNS_DOMAINS)
-        jobcmd = (
+        self.jobcmd = (
             ["ssh", host, "-T", "-n", "-o", "BatchMode=yes"] + SSH_OPTS + self.command
         )
-        printfile(f"{dirlog}/{self.host}.ssh", jobcmd)
+        printfile(self.jobcmd, file=f"{dirlog}/{self.host}.ssh")
         self.status.logfile = f"{dirlog}/{self.host}.out"
-        if dirlog:
-            fdout = open(self.status.logfile, "w", encoding="UTF-8", buffering=1)
-        else:
-            fdout = sys.stdout
         self.status.start = time()
-        pssh = Popen(
-            jobcmd,
-            bufsize=0,
-            encoding="UTF-8",
-            stdout=fdout,
-            stderr=fdout,
-            stdin=DEVNULL,
-            close_fds=True,
-        )
-        self.status.status = "RUNNING"
-        self.status.pid = pssh.pid
-        printq.put(deepcopy(self.status))  # deepcopy to fix pb with object in queue
-        pssh.wait()
-        fdout.close()
-        self.status.exit = pssh.returncode
+        with open(self.status.logfile, "w", encoding="UTF-8", buffering=1) as fdout:
+            self.run(fdout, dirlog)
+
+    def update_status(self, returncode: int, dirlog: str) -> None:
+        self.status.exit = returncode
         self.status.duration = time() - self.status.start
-        self.status.status = "SUCCESS" if pssh.returncode == 0 else "FAILED"
+        self.status.status = "SUCCESS" if returncode == 0 else "FAILED"
         printq.put(deepcopy(self.status))  # deepcopy to fix pb with object in queue
-        with open(
-            f"{dirlog}/{self.host}.{self.status.status.lower()}", "w", encoding="UTF-8"
-        ) as fstatus:
-            print(
-                "EXIT CODE:",
-                self.status.exit,
-                self.status.status,
-                self.status.duration,
-                file=fstatus,
-            )
+        printfile(
+            "EXIT CODE:",
+            self.status.exit,
+            self.status.status,
+            self.status.duration,
+            file=f"{dirlog}/{self.host}.{self.status.status.lower()}",
+        )
 
 
 class JobRun(threading.Thread):
@@ -928,11 +932,11 @@ def tstodatetime(ts) -> Optional[str]:
     return datetime.fromtimestamp(tsi).strftime("%Y-%m-%d %H:%M:%S")
 
 
-def printfile(file: str, text: str) -> bool:
+def printfile(*args, file: str = None) -> bool:
     """try print text to file"""
     try:
         with open(file, "w", encoding="UTF-8") as fd:
-            print(text, file=fd)
+            print(*args, file=fd)
     except OSError:
         return False
     return True
@@ -1096,10 +1100,10 @@ def main() -> None:
     hosts = get_hosts(args.hostsfile, args.hosts)
     dirlog = make_logdir(args.dirlog, args.job)
     printfile(
-        f"{dirlog}/ssh-para.command",
         f"Hostsfile: {hostsfile} Command: {' '.join(command)}",
+        file=f"{dirlog}/ssh-para.command",
     )
-    printfile(f"{dirlog}/hosts.list", "\n".join(hosts))
+    printfile("\n".join(hosts), file=f"{dirlog}/hosts.list")
     max_len = 0
     for host in hosts:
         max_len = max(max_len, len(short_host(host)))
