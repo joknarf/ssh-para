@@ -8,6 +8,7 @@
 
 # ssh-para
 Parallel SSH jobs manager CLI (alternative to parallel-ssh)
+
 * POSIX/Linux/MacOS/Windows compatible (with openssh client installed)
 * Launch parallel ssh jobs/scripts on remote hosts, with interactive display of the running commands outputs
 * Keep all output in log files
@@ -97,6 +98,7 @@ options:
                         script arguments
 ```    
 During run, use :
+
 * k: to kill ssh command held by a thread (but remote command can still be running on remote host)
 * p: pause all remaining jobs to be scheduled
 * r: resume scheduling of jobs
@@ -104,6 +106,7 @@ During run, use :
 * ctrl-c: stop all/exit (but remote commands launched by ssh can still be running on remote servers)
 
 Environment variables:
+
 * SSHP_OPTS: ssh default options (Eg: "-F /home/user/.ssh/myconfig")
 * SSHP_DOMAINS: dns domains to search when short hostname given (with -r/--resolve option)
 * SSHP_SYM_BEG: Symbol character for begin decorative (default: "\ue0b4")
@@ -112,6 +115,7 @@ Environment variables:
 * SSHP_SYM_RES: Symbol character before ssh output line (default: "\u25b6")
 
 Activate autocompletion:
+
 * `. <(ssh-para -C bash)`
 * `ssh-para -C powershell | Out-String | Invoke-Expression`
 
