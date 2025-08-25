@@ -378,6 +378,17 @@ class Tui:
                 matches = []
                 match_idx = -1
 
+    def init_curses(self) -> None:
+        """ (Re)initialize curses state after temporarily exiting to console."""
+        try:
+            self.stdscr = curses.initscr()
+            curses.cbreak()
+            curses.noecho()
+            curses.curs_set(0)
+            self.init_color()
+        except Exception:
+            pass
+
     def show_names_console(self) -> None:
         """Temporarily exit curses, print job names to stdout, wait for one key, then re-enter curses."""
         # End curses mode to allow normal stdout
@@ -396,20 +407,7 @@ class Tui:
         print(f"Filters: status={STATUSES[self.status_idx]} name='{self.name_filter}' text='{self.text_filter}' cmd={getattr(self, 'command', '')}")
         input("Press Enter to return to TUI...")
         # Reinitialize curses state
-        try:
-            self.stdscr = curses.initscr()
-            curses.cbreak()
-            curses.noecho()
-            try:
-                curses.curs_set(0)
-            except Exception:
-                pass
-            try:
-                curses.start_color()
-            except Exception:
-                pass
-        except Exception:
-            pass
+        self.init_curses()
 
     def loop(self) -> None:
         curses.curs_set(0)
