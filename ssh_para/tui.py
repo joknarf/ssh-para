@@ -14,9 +14,6 @@ import os
 import re
 from glob import glob
 from typing import List, Dict, Optional
-import sys
-import tty
-import termios
 from .functions import addstr, curses_init_pairs, CURSES_COLORS
 from .segment import Segment
 from .symbols import SYMBOL_BEGIN, SYMBOL_END
@@ -388,29 +385,16 @@ class Tui:
             curses.endwin()
         except Exception:
             pass
-        try:
-            # print only the currently filtered jobs so output matches TUI view
-            items = self.filtered()
-            print()
-            print("Jobs (filtered):")
-            for j in items:
-                print(j.get("name", ""))
-            print()
-            # show active filters for context
-            print(f"Filters: status={STATUSES[self.status_idx]} name='{self.name_filter}' text='{self.text_filter}' cmd={getattr(self, 'command', '')}")
-            print("Press any key to return to TUI...", end="", flush=True)
-            fd = sys.stdin.fileno()
-            old_settings = termios.tcgetattr(fd)
-            try:
-                tty.setraw(fd)
-                sys.stdin.read(1)
-            finally:
-                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        except Exception:
-            try:
-                input("Press Enter to return to TUI...")
-            except Exception:
-                pass
+        # print only the currently filtered jobs so output matches TUI view
+        items = self.filtered()
+        print()
+        print("Jobs (filtered):")
+        for j in items:
+            print(j.get("name", ""))
+        print()
+        # show active filters for context
+        print(f"Filters: status={STATUSES[self.status_idx]} name='{self.name_filter}' text='{self.text_filter}' cmd={getattr(self, 'command', '')}")
+        input("Press Enter to return to TUI...")
         # Reinitialize curses state
         try:
             self.stdscr = curses.initscr()
