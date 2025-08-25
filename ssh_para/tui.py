@@ -214,7 +214,7 @@ class Tui:
             self.stdscr.refresh()
             return
         # display list
-        avail = (maxy - 1) - first_item_line
+        avail = (maxy - 2) - first_item_line
         if self.cursor < self.top:
             self.top = self.cursor
         elif self.cursor >= self.top + avail:
@@ -233,11 +233,11 @@ class Tui:
     def prompt(self, prompt: str) -> str:
         curses.echo()
         maxy, maxx = self.stdscr.getmaxyx()
-        self.stdscr.addnstr(maxy - 3, 0, " " * (maxx - 1), maxx - 1)
-        self.stdscr.addnstr(maxy - 3, 0, prompt, maxx - 1)
+        self.stdscr.addnstr(maxy - 2, 0, " " * (maxx - 1), maxx - 1)
+        self.stdscr.addnstr(maxy - 2, 0, prompt, maxx - 1)
         self.stdscr.refresh()
         try:
-            s = self.stdscr.getstr(maxy - 3, len(prompt), maxx - len(prompt) - 1)
+            s = self.stdscr.getstr(maxy - 2, len(prompt), maxx - len(prompt) - 1)
             if isinstance(s, bytes):
                 s = s.decode(errors="replace")
         except Exception:
