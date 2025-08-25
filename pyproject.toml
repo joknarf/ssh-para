@@ -25,7 +25,7 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: POSIX",
   "Operating System :: Unix",
-  "Operating System :: Microsoft :: Windows ",
+  "Operating System :: Microsoft :: Windows",
   "Operating System :: MacOS",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
