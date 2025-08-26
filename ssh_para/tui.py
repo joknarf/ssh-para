@@ -14,9 +14,9 @@ import os
 import re
 from glob import glob
 from typing import List, Dict, Optional
-from .functions import addstr, curses_init_pairs, CURSES_COLORS
-from .segment import Segment
-from .symbols import SYMBOL_BEGIN, SYMBOL_END
+from ssh_para.functions import addstr, curses_init_pairs, CURSES_COLORS
+from ssh_para.segment import Segment
+from ssh_para.symbols import SYMBOL_BEGIN, SYMBOL_END
 
 STATUSES = ["ALL", "SUCCESS", "FAILED", "TIMEOUT", "KILLED", "ABORTED"]
 

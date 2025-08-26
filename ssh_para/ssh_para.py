@@ -27,10 +27,10 @@ from copy import deepcopy
 import argcomplete
 from colorama import Fore, Style, init
 from ssh_para.version import __version__
-from .functions import addstr, addstrc, last_line, curses_init_pairs, CURSES_COLORS
-from .symbols import SYMBOL_BEGIN, SYMBOL_END, SYMBOL_PROG, SYMBOL_RES
-from .tui import launch_tui
-from .segment import Segment
+from ssh_para.functions import addstr, addstrc, last_line, curses_init_pairs, CURSES_COLORS
+from ssh_para.symbols import SYMBOL_BEGIN, SYMBOL_END, SYMBOL_PROG, SYMBOL_RES
+from ssh_para.tui import launch_tui
+from ssh_para.segment import Segment
 
 os.environ["TERM"] = "xterm-256color"
 
@@ -351,29 +351,8 @@ class JobPrint(threading.Thread):
         curses.noecho()
         curses.curs_set(0)
         curses.start_color()
+        curses_init_pairs()
         self.segment = Segment(self.stdscr, 5)
-        curses.init_pair(
-            self.status_color["RUNNING"], curses.COLOR_WHITE, curses.COLOR_BLUE
-        )
-        curses.init_pair(
-            self.status_color["RUNNING"] + 1, curses.COLOR_BLUE, curses.COLOR_BLACK
-        )
-        curses.init_pair(
-            self.status_color["SUCCESS"], curses.COLOR_WHITE, curses.COLOR_GREEN
-        )
-        curses.init_pair(
-            self.status_color["SUCCESS"] + 1, curses.COLOR_GREEN, curses.COLOR_BLACK
-        )
-        curses.init_pair(
-            self.status_color["FAILED"], curses.COLOR_WHITE, curses.COLOR_RED
-        )
-        curses.init_pair(
-            self.status_color["FAILED"] + 1, curses.COLOR_RED, curses.COLOR_BLACK
-        )
-        curses.init_pair(self.status_color["IDLE"], curses.COLOR_WHITE, 8)
-        curses.init_pair(self.status_color["IDLE"] + 1, 8, curses.COLOR_BLACK)
-        curses.init_pair(self.COLOR_GAUGE, 8, curses.COLOR_BLUE)
-        curses.init_pair(self.COLOR_HOST, curses.COLOR_YELLOW, curses.COLOR_BLACK)
 
     def killall(self) -> None:
         """kill all running threads pid"""

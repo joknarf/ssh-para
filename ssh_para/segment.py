@@ -3,8 +3,8 @@
 
 import curses
 from typing import Optional
-from .functions import addstr
-from .symbols import SYMBOL_BEGIN, SYMBOL_END
+from ssh_para.functions import addstr
+from ssh_para.symbols import SYMBOL_BEGIN, SYMBOL_END
 
 
 class Segment:
