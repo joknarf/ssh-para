@@ -517,6 +517,14 @@ class JobPrint(threading.Thread):
                 f"ETA: {estimated}",
             ],
         )
+        printfile(
+            f"begin: {datetime.fromtimestamp(self.startsec).strftime("%Y-%m-%d %H:%M:%S")}",
+            f"end: --:--:--",
+            f"dur: {total_dur}",
+            f"runs: {nbend}/{self.nbjobs}",
+            f"\n{self.jobstatuslog.result()}",
+            file=f"{self.dirlog}/ssh-para.result",
+        )
         addstr(self.stdscr, 1, 0, f" Dirlog: {self.pdirlog} Command: ")
         addstrc(self.stdscr, self.cmd[: curses.COLS - self.stdscr.getyx()[1]])
         addstrc(self.stdscr, 2, 0, "")
