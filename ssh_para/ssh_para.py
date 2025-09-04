@@ -92,7 +92,6 @@ def parse_args() -> Namespace:
         "-d",
         "--dirlog",
         help="directory for ouput log files (default: ~/.ssh-para)",
-        default=os.path.expanduser("~/.ssh-para"),
     )
     parser.add_argument(
         "-m",
@@ -140,6 +139,7 @@ def parse_args() -> Namespace:
         "--logs",
         nargs="+",
         help="""get latest/current ssh-para run logs
+-L <runid>                 : launch log TUI of <runid>
 -L[<runid>/]*.out          : all hosts outputs
 -L[<runid>/]<host>.out     : command output of host
 -L[<runid>/]*.<status>     : command output of hosts <status>
@@ -316,6 +316,7 @@ class JobPrint(threading.Thread):
         timeout: float = 0,
         verbose: bool = False,
         maxhostlen: int = 15,
+        tui_cmd: str = "",
     ):
         """init properties / thread"""
         super().__init__()
@@ -328,6 +329,7 @@ class JobPrint(threading.Thread):
         self.nbjobs = nbjobs
         self.dirlog = dirlog
         self.aborted = []
+        self.tui_cmd = tui_cmd
         self.startsec = time()
         self.stdscr: Optional[curses._CursesWindow] = None
         self.paused = False
@@ -525,7 +527,7 @@ class JobPrint(threading.Thread):
             f"\n{self.jobstatuslog.result()}",
             file=f"{self.dirlog}/ssh-para.result",
         )
-        addstr(self.stdscr, 1, 0, f" Dirlog: {self.pdirlog} Command: ")
+        addstr(self.stdscr, 1, 0, f" LogTUI: {self.tui_cmd} Command: ")
         addstrc(self.stdscr, self.cmd[: curses.COLS - self.stdscr.getyx()[1]])
         addstrc(self.stdscr, 2, 0, "")
         self.print_finished(line_num + (nbrun > 0))
@@ -660,6 +662,7 @@ class JobPrint(threading.Thread):
             print_tee(" ", jstatus.log, file=global_log)
         print_tee("command:", self.command, file=global_log)
         print_tee("log directory:", self.pdirlog, file=global_log)
+        print_tee("log TUI:", self.tui_cmd, "\n", file=global_log)
         start = datetime.fromtimestamp(self.startsec).strftime("%Y-%m-%d %H:%M:%S")
         print_tee(
             f"{nbrun}/{self.nbjobs} jobs run : begin: {start}",
@@ -947,7 +950,8 @@ def make_logdir(dirlog: str, job: str) -> str:
     jobdirlog = dirlog
     if job:
         jobdirlog += f"/{job}"
-    dirlogtime = jobdirlog + "/" + str(int(time()))
+    logtime = str(int(time()))
+    dirlogtime = os.path.join(jobdirlog, str(int(time())))
     try:
         if not os.path.isdir(dirlogtime):
             os.makedirs(dirlogtime)
@@ -957,7 +961,7 @@ def make_logdir(dirlog: str, job: str) -> str:
     make_latest(dirlog, dirlogtime)
     if job:
         make_latest(jobdirlog, dirlogtime)
-    return dirlogtime
+    return (logtime, dirlogtime)
 
 
 def main() -> None:
@@ -974,18 +978,28 @@ def main() -> None:
         MAX_DOTS = args.maxdots
     if MAX_DOTS == -1:
         MAX_DOTS = None
+    dirlog = args.dirlog or os.path.expanduser("~/.ssh-para")
     if args.list:
-        log_results(args.dirlog, args.job)
+        log_results(dirlog, args.job)
+    if args.logs:
+        try:
+            runid = int(args.logs[0])
+            args.tui = True
+        except ValueError:
+            pass
     if args.tui:
-        dirlog = os.path.join(args.dirlog, args.job)
+        dirlog = os.path.join(dirlog, args.job)
         if args.logs:
-            dirlog = os.path.join(args.dirlog, args.logs[0])
+            dirlog = os.path.join(dirlog, args.logs[0])
         else:
             dirlog = get_latest_dir(dirlog)
+        if not isdir(dirlog):
+            print(f"Error: ssh-para: cannot access directory {dirlog}", file=sys.stderr)
+            sys.exit(1)
         launch_tui(dirlog)
         return
     if args.logs:
-        log_contents(args.logs, args.dirlog, args.job)
+        log_contents(args.logs, dirlog, args.job)
     if args.script:
         args.ssh_args.append(script_command(args.script, args.args))
         command = [args.script]
@@ -1001,7 +1015,13 @@ def main() -> None:
     else:
         hostsfile = "parameter"
     hosts = get_hosts(args.hostsfile, args.hosts)
-    dirlog = make_logdir(args.dirlog, args.job)
+    (runid, dirlog) = make_logdir(dirlog, args.job)
+    tui_command = " ".join([i for i in [
+        f"ssh-para",
+        f"-j {args.job}" if args.job else "",
+        f"-d {args.dirlog}" if args.dirlog else "",
+        f"-L {runid}",
+    ] if i])
     printfile(
         f"Hostsfile: {hostsfile} Command: {' '.join(command)}",
         file=f"{dirlog}/ssh-para.command",
@@ -1020,7 +1040,7 @@ def main() -> None:
     except AttributeError:
         pass
     p = JobPrint(
-        command, parallel, len(hosts), dirlog, args.timeout, args.verbose, max_len
+        command, parallel, len(hosts), dirlog, args.timeout, args.verbose, max_len, tui_command
     )
     p.start()
     jobruns = []
