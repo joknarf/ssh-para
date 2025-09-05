@@ -137,9 +137,9 @@ def parse_args() -> Namespace:
     host_group.add_argument(
         "-L",
         "--logs",
-        nargs="+",
+        nargs="*",
         help="""get latest/current ssh-para run logs
--L <runid>                 : launch log TUI of <runid>
+-L [<runid>]               : launch log TUI of <runid> or latest run
 -L[<runid>/]*.out          : all hosts outputs
 -L[<runid>/]<host>.out     : command output of host
 -L[<runid>/]*.<status>     : command output of hosts <status>
@@ -150,7 +150,6 @@ default <runid> is latest ssh-para run (use -j <job> -d <dir> to access logs if 
 <status>: [success,failed,timeout,killed,aborted]
 """,
     ).completer = log_choices  # type: ignore
-    parser.add_argument("-T", "--tui", action="store_true", help="log view in TUI")
     parser.add_argument("-s", "--script", help="script to execute")
     parser.add_argument("-a", "--args", nargs="+", help="script arguments")
 
@@ -981,13 +980,14 @@ def main() -> None:
     dirlog = args.dirlog or os.path.expanduser("~/.ssh-para")
     if args.list:
         log_results(dirlog, args.job)
+    tui = False
     if args.logs:
         try:
             runid = int(args.logs[0])
-            args.tui = True
+            tui = True
         except ValueError:
             pass
-    if args.tui:
+    if tui or args.logs == []:
         dirlog = os.path.join(dirlog, args.job)
         if args.logs:
             dirlog = os.path.join(dirlog, args.logs[0])
