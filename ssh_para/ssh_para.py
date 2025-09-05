@@ -519,7 +519,7 @@ class JobPrint(threading.Thread):
             ],
         )
         printfile(
-            f"begin: {datetime.fromtimestamp(self.startsec).strftime("%Y-%m-%d %H:%M:%S")}",
+            f"begin: {datetime.fromtimestamp(self.startsec).strftime('%Y-%m-%d %H:%M:%S')}",
             f"end: --:--:--",
             f"dur: {total_dur}",
             f"runs: {nbend}/{self.nbjobs}",
