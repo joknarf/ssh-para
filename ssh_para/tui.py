@@ -456,18 +456,6 @@ class Tui:
         while True:
             items = self.filtered()
             items_len = len(items)
-            # cache display counts once per loop iteration (single pass)
-            d = s = f = 0
-            for j in items:
-                d += 1
-                st = j.get("status")
-                if st == "SUCCESS":
-                    s += 1
-                elif st == "FAILED":
-                    f += 1
-            self._display_done = d
-            self._display_success = s
-            self._display_failed = f
             self.draw(items)
             ch = self.stdscr.getch()
             if ch in (ord('q'), 27):
