@@ -35,9 +35,23 @@ def _read_tail(path: str, maxbytes: int = 4096) -> str:
     except OSError:
         return ""
 
+def read_status_names(dirlog: str, file: str) -> List:
+    fpath = os.path.join(dirlog, file)
+    if os.path.exists(fpath):
+        with open(fpath, 'r') as f:
+            return f.read().splitlines()
+    return []
 
 def load_jobs(dirlog: str) -> List[Dict]:
     """Scan dirlog for job output files and build job entries."""
+    names_status = {}
+    for name in read_status_names(dirlog, "killed.status"):
+        names_status[name] = 'KILLED'
+    for name in read_status_names(dirlog, "timeout.status"):
+        names_status[name] = 'TIMEOUT'
+    for name in read_status_names(dirlog, "success.status"):
+        names_status[name] = 'SUCCESS'
+
     files = glob(os.path.join(dirlog, "*.out"))
     jobs: List[Dict] = []
     for f in sorted(files):
@@ -47,19 +61,18 @@ def load_jobs(dirlog: str) -> List[Dict]:
             continue
         status = "RUNNING"
         exit_code = ""
-        for s in STATUSES[1:]:
-            if os.path.exists(os.path.join(dirlog, f"{name}.{s.lower()}")):
-                status = s
-                if status == "FAILED":
-                    with open(os.path.join(dirlog, f"{name}.{s.lower()}"), "r", encoding="utf-8", errors="replace") as fd:
-                        exit_code = fd.read().strip().split()[2]
-                elif status == "SUCCESS":
-                    exit_code = "0"
-                elif status == "RUNNING":
-                    exit_code = ""
-                else:
-                    exit_code = "-1"
-                break
+        if name in names_status:
+            status = names_status[name]
+        else:
+            failed = os.path.join(dirlog, f"{name}.failed")
+            if os.path.exists(failed):
+                status = "FAILED"
+                with open(failed, "r", encoding="utf-8", errors="replace") as fd:
+                    exit_code = fd.read().strip().split()[2]
+        if status in ["ABORTED", "TIMEOUT", "KILLED"]:
+            exit_code = "255"
+        elif status == "SUCCESS":
+            exit_code = "0"
         snippet = ""
         tail = _read_tail(f, maxbytes=2048)
         if tail:
@@ -73,6 +86,11 @@ def load_jobs(dirlog: str) -> List[Dict]:
             # "cmd": cmd or "",
             "snippet": snippet,
         })
+    aborted = os.path.join(dirlog, "aborted.status")
+    if os.path.exists(aborted):
+        with open(aborted, 'r') as f:
+            for name in f.read().splitlines():
+                jobs.append({"name": name, "status": "ABORTED", "exit_code": "-1", "snippet": "canceled run"})
     return jobs
 
 
@@ -536,8 +554,9 @@ class Tui:
                 self.top = 0
             elif ch == ord('r'):
                 self.filtered_jobs = None
-                self.jobs = load_jobs(self.dirlog)
-                self.summary = parse_result(self.dirlog)
+                if self.summary["end"] == "--:--:--":
+                    self.jobs = load_jobs(self.dirlog)
+                    self.summary = parse_result(self.dirlog)
                 self.name_filter = ""
                 self.text_filter = ""
                 self.status_idx = 0
