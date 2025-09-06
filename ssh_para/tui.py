@@ -184,7 +184,7 @@ class Tui:
         curses_init_pairs()
         self.segment = Segment(self.stdscr, 6)
 
-    def draw(self) -> None:
+    def draw(self, items: Optional[List[Dict]] = None) -> None:
         self.stdscr.erase()
         maxy, maxx = self.stdscr.getmaxyx()
         # summary line from ssh-para.result (display first if present)
@@ -205,7 +205,8 @@ class Tui:
         first_item_line = 3
         header = f"Filters: status={STATUSES[self.status_idx]} name='{self.name_filter}' text='{self.text_filter}' cmd={self.command}"
         self.stdscr.addnstr(1, 0, header, maxx - 1)
-        items = self.filtered()
+        if items is None:
+            items = self.filtered()
         if not items:
             self.stdscr.addnstr(first_item_line, 0, "No matching jobs", maxx - 1)
             self.stdscr.refresh()
@@ -412,26 +413,31 @@ class Tui:
     def loop(self) -> None:
         curses.curs_set(0)
         while True:
-            self.draw()
+            items = self.filtered()
+            items_len = len(items)
+            self.draw(items)
             ch = self.stdscr.getch()
             if ch in (ord('q'), 27):
                 break
             elif ch in (curses.KEY_DOWN, ord('j')):
-                if self.cursor + 1 < len(self.filtered()):
+                if self.cursor + 1 < items_len:
                     self.cursor += 1
             elif ch in (curses.KEY_UP, ord('k')):
                 if self.cursor > 0:
                     self.cursor -= 1
             elif ch == curses.KEY_NPAGE:
-                # page down
+                # page down: move by visible page size
                 maxy, maxx = self.stdscr.getmaxyx()
-                step = max(1, maxy - 5)
-                items_len = len(self.filtered()) or 1
-                self.cursor = min(items_len - 1, self.cursor + step)
+                first_item_line = 3
+                avail = (maxy - 2) - first_item_line
+                step = max(1, avail)
+                self.cursor = min(items_len - 1, self.cursor + step) if items_len else 0
             elif ch == curses.KEY_PPAGE:
-                # page up
+                # page up: move by visible page size
                 maxy, maxx = self.stdscr.getmaxyx()
-                step = max(1, maxy - 5)
+                first_item_line = 3
+                avail = (maxy - 2) - first_item_line
+                step = max(1, avail)
                 self.cursor = max(0, self.cursor - step)
             elif ch == ord('p'):
                 # show job names in console and wait for key
@@ -478,7 +484,6 @@ class Tui:
                 self.cursor = 0
                 self.top = 0
             elif ch in (curses.KEY_ENTER, 10, 13):
-                items = self.filtered()
                 if items:
                     job = items[self.cursor]
                     self.view_output(job)
