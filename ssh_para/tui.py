@@ -103,6 +103,7 @@ def parse_result(dirlog: str) -> Dict[str, str]:
     m = _re.search(r"runs:\s*([0-9]+\s*/\s*[0-9]+)", text, _re.IGNORECASE)
     if m:
         summary["runs"] = m.group(1).strip()
+        summary["runs_total"] = summary["runs"].split("/")[1].strip()
     # counts
     for k in ("success", "failed", "timeout", "killed", "aborted"):
         m = _re.search(rf"{k}:\s*([0-9]+)", text)
@@ -213,14 +214,39 @@ class Tui:
     def draw(self, items: Optional[List[Dict]] = None) -> None:
         self.stdscr.erase()
         maxy, maxx = self.stdscr.getmaxyx()
+        # Prefer cached display counts (set in loop()) to avoid re-scanning items here.
+        if hasattr(self, "_display_done"):
+            display_done = str(self._display_done)
+            display_success = str(self._display_success)
+            display_failed = str(self._display_failed)
+        else:
+            if items is None:
+                items = self.filtered()
+            if items:
+                d = s = f = 0
+                for j in items:
+                    d += 1
+                    st = j.get("status")
+                    if st == "SUCCESS":
+                        s += 1
+                    elif st == "FAILED":
+                        f += 1
+                display_done = str(d)
+                display_success = str(s)
+                display_failed = str(f)
+            else:
+                display_done = str(self.summary.get("runs", ""))
+                display_success = str(self.summary.get("success", ""))
+                display_failed = str(self.summary.get("failed", ""))
+
         # summary line from ssh-para.result (display first if present)
         sumline = [
-            f"done: {self.summary['runs']}",
-            f"success: {self.summary['success']}",
-            f"failed: {self.summary['failed']}",
-            f"begin: {self.summary['begin']}",
-            f"end: {self.summary['end']}",
-            f"dur: {self.summary['dur']}"
+            f"runs: {display_done}/{self.summary.get('runs_total', '?')}",
+            f"success: {display_success}",
+            f"failed: {display_failed}",
+            f"begin: {self.summary.get('begin', '')}",
+            f"end: {self.summary.get('end', '')}",
+            f"dur: {self.summary.get('dur', '')}"
         ]
 
         # draw using Segment
@@ -231,8 +257,7 @@ class Tui:
         first_item_line = 3
         header = f"Filters: status={STATUSES[self.status_idx]} name='{self.name_filter}' text='{self.text_filter}' cmd={self.command}"
         self.stdscr.addnstr(1, 0, header, maxx - 1)
-        if items is None:
-            items = self.filtered()
+    # items already ensured above
         if not items:
             self.stdscr.addnstr(first_item_line, 0, "No matching jobs", maxx - 1)
             self.stdscr.refresh()
@@ -441,6 +466,18 @@ class Tui:
         while True:
             items = self.filtered()
             items_len = len(items)
+            # cache display counts once per loop iteration (single pass)
+            d = s = f = 0
+            for j in items:
+                d += 1
+                st = j.get("status")
+                if st == "SUCCESS":
+                    s += 1
+                elif st == "FAILED":
+                    f += 1
+            self._display_done = d
+            self._display_success = s
+            self._display_failed = f
             self.draw(items)
             ch = self.stdscr.getch()
             if ch in (ord('q'), 27):
