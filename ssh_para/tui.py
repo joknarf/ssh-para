@@ -80,7 +80,6 @@ def load_jobs(dirlog: str) -> List[Dict]:
             snippet = lines[-1] if lines else ""
         jobs.append({
             "name": name,
-            "out": f,
             "status": status,
             "exit_code": exit_code,
             # "cmd": cmd or "",
@@ -199,7 +198,8 @@ class Tui:
                     matched = True
                     matched_line = hay
                 else:
-                    tail = _read_tail(j["out"], maxbytes=8192)
+                    outfile = os.path.join(self.dirlog, f"{j['name']}.out")
+                    tail = _read_tail(outfile, maxbytes=8192)
                     if tail and self.text_re:
                         for line in reversed(tail.splitlines()):
                             if self.text_re.search(line):
@@ -294,10 +294,11 @@ class Tui:
         # open a simple fullscreen viewer
         maxy, maxx = self.stdscr.getmaxyx()
         try:
-            with open(job["out"], "r", encoding="utf-8", errors="replace") as fd:
+            outfile = os.path.join(self.dirlog, f"{job['name']}.out")
+            with open(outfile, "r", encoding="utf-8", errors="replace") as fd:
                 lines = fd.read().splitlines()
         except OSError:
-            lines = ["(cannot open file)"]
+            lines = ["(no output file)"]
         pos = 0
         # search state (default to list-view text search if present)
         search_re = self.text_re if hasattr(self, "text_re") else None
