@@ -126,12 +126,17 @@ class Tui:
         self.text_re = None
         self.name_re_err = False
         self.text_re_err = False
+        self.name_neg = False
+        self.text_neg = False
         self.status_idx = 0
         self.cursor = 0
         self.top = 0
         self.init_color()
-        with open(os.path.join(dirlog, "ssh-para.command"), "r", encoding="utf-8", errors="replace") as fd:
-           self.command = fd.read().strip().split("Command: ")[-1]
+        try:
+            with open(os.path.join(dirlog, "ssh-para.command"), "r", encoding="utf-8", errors="replace") as fd:
+                self.command = fd.read().strip().split("Command: ")[-1]
+        except Exception:
+            self.command = ""
 
 
     def filtered(self) -> List[Dict]:
@@ -146,21 +151,42 @@ class Tui:
                     # invalid regex, treat as no match
                     continue
                 if self.name_re:
-                    if not self.name_re.search(j["name"] or ""):
-                        continue
+                    if self.name_neg:
+                        # exclude matching names
+                        if self.name_re.search(j["name"] or ""):
+                            continue
+                    else:
+                        if not self.name_re.search(j["name"] or ""):
+                            continue
             if self.text_filter:
                 if self.text_re_err:
                     continue
-                # try snippet first, then tail
+                # handle negation separately: if negated, exclude jobs that match
                 hay = j["snippet"] or ""
+                if self.text_neg:
+                    found = False
+                    # check snippet first
+                    if self.text_re and self.text_re.search(hay):
+                        found = True
+                    else:
+                        tail = _read_tail(j["out"], maxbytes=8192)
+                        if tail and self.text_re:
+                            for line in reversed(tail.splitlines()):
+                                if self.text_re.search(line):
+                                    found = True
+                                    break
+                    # if any match found, exclude this job; otherwise include it
+                    if found:
+                        continue
+                    res.append(j)
+                    continue
+                # positive filter: try snippet first, then tail
                 matched = False
                 matched_line = None
-                # prefer matching in the snippet line (fast)
                 if self.text_re and self.text_re.search(hay):
                     matched = True
                     matched_line = hay
                 else:
-                    # search tail lines from end to start to find last matching line
                     tail = _read_tail(j["out"], maxbytes=8192)
                     if tail and self.text_re:
                         for line in reversed(tail.splitlines()):
@@ -446,29 +472,54 @@ class Tui:
                 self.text_filter = self.prompt("Search text (regexp): ")
                 # compile regex
                 if self.text_filter:
-                    try:
-                        self.text_re = re.compile(self.text_filter, re.IGNORECASE)
-                        self.text_re_err = False
-                    except re.error:
+                    # support negation prefix: '!pattern' means exclude matches
+                    if self.text_filter.startswith('!'):
+                        self.text_neg = True
+                        expr = self.text_filter[1:]
+                    else:
+                        self.text_neg = False
+                        expr = self.text_filter
+                    if expr:
+                        try:
+                            self.text_re = re.compile(expr, re.IGNORECASE)
+                            self.text_re_err = False
+                        except re.error:
+                            self.text_re = None
+                            self.text_re_err = True
+                    else:
+                        # empty expr after '!' or direct empty -> clear regex but keep neg flag
                         self.text_re = None
-                        self.text_re_err = True
+                        self.text_re_err = False
                 else:
                     self.text_re = None
                     self.text_re_err = False
+                    self.text_neg = False
                 self.cursor = 0
                 self.top = 0
             elif ch == ord('n'):
                 self.name_filter = self.prompt("Name filter (regexp): ")
                 if self.name_filter:
-                    try:
-                        self.name_re = re.compile(self.name_filter, re.IGNORECASE)
-                        self.name_re_err = False
-                    except re.error:
+                    # support negation prefix: '!pattern' means exclude matching names
+                    if self.name_filter.startswith('!'):
+                        self.name_neg = True
+                        expr = self.name_filter[1:]
+                    else:
+                        self.name_neg = False
+                        expr = self.name_filter
+                    if expr:
+                        try:
+                            self.name_re = re.compile(expr, re.IGNORECASE)
+                            self.name_re_err = False
+                        except re.error:
+                            self.name_re = None
+                            self.name_re_err = True
+                    else:
                         self.name_re = None
-                        self.name_re_err = True
+                        self.name_re_err = False
                 else:
                     self.name_re = None
                     self.name_re_err = False
+                    self.name_neg = False
                 self.cursor = 0
                 self.top = 0
             elif ch == ord('s'):
