@@ -152,6 +152,7 @@ class Tui:
         self.cursor = 0
         self.top = 0
         self.filtered_jobs: Optional[List[Dict]] = None
+        self.statuses = ["ALL"]
         self.init_color()
         try:
             with open(os.path.join(dirlog, "ssh-para.command"), "r", encoding="utf-8", errors="replace") as fd:
@@ -170,9 +171,11 @@ class Tui:
         if self.filtered_jobs is not None:
             return self.filtered_jobs
         self.counts = {"runs": 0, "success": 0, "failed": 0}
-        s = STATUSES[self.status_idx]
+        s = self.statuses[self.status_idx]
         res = []
         for j in self.jobs:
+            if j["status"] not in self.statuses:
+                self.statuses.append(j['status'])
             if s != "ALL" and j["status"] != s:
                 continue
             # Command filter: regex (compiled), fall back to substring if empty
@@ -240,7 +243,7 @@ class Tui:
         except Exception:
             self.stdscr.addnstr(0, 0, " | ".join(sumline), maxx - 1)
         first_item_line = 3
-        header = f"Filters: status={STATUSES[self.status_idx]} name='{self.name_filter}' text='{self.text_filter}' cmd={self.command}"
+        header = f"Filters: status={self.statuses[self.status_idx]} name='{self.name_filter}' text='{self.text_filter}' cmd={self.command}"
         self.stdscr.addnstr(1, 0, header, maxx - 1)
     # items already ensured above
         if not items:
@@ -441,7 +444,7 @@ class Tui:
             print(j.get("name", ""))
         print()
         # show active filters for context
-        print(f"Filters: status={STATUSES[self.status_idx]} name='{self.name_filter}' text='{self.text_filter}' cmd={getattr(self, 'command', '')}")
+        print(f"Filters: status={self.statuses[self.status_idx]} name='{self.name_filter}' text='{self.text_filter}' cmd={getattr(self, 'command', '')}")
         input("Press Enter to return to TUI...")
         # Reinitialize curses state
         self.init_curses()
@@ -549,7 +552,7 @@ class Tui:
                 self.top = 0
             elif ch == ord('s'):
                 self.filtered_jobs = None
-                self.status_idx = (self.status_idx + 1) % len(STATUSES)
+                self.status_idx = (self.status_idx + 1) % len(self.statuses)
                 self.cursor = 0
                 self.top = 0
             elif ch == ord('r'):
