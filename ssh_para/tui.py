@@ -161,10 +161,11 @@ class Tui:
             self.command = ""
 
     def count(self, job: Dict) -> None:
-        self.counts["runs"] += 1
+        if job["status"] != "ABORTED":
+            self.counts["runs"] += 1
         if job["status"] == "SUCCESS":
             self.counts["success"] += 1
-        elif job["status"] != "RUNNING":
+        elif job["status"] not in ["RUNNING", "ABORTED"]:
             self.counts["failed"] += 1
 
     def filtered(self) -> List[Dict]:
