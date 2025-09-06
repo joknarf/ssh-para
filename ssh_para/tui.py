@@ -422,6 +422,17 @@ class Tui:
             elif ch in (curses.KEY_UP, ord('k')):
                 if self.cursor > 0:
                     self.cursor -= 1
+            elif ch == curses.KEY_NPAGE:
+                # page down
+                maxy, maxx = self.stdscr.getmaxyx()
+                step = max(1, maxy - 5)
+                items_len = len(self.filtered()) or 1
+                self.cursor = min(items_len - 1, self.cursor + step)
+            elif ch == curses.KEY_PPAGE:
+                # page up
+                maxy, maxx = self.stdscr.getmaxyx()
+                step = max(1, maxy - 5)
+                self.cursor = max(0, self.cursor - step)
             elif ch == ord('p'):
                 # show job names in console and wait for key
                 self.show_names_console()

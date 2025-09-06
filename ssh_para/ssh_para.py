@@ -950,7 +950,7 @@ def make_logdir(dirlog: str, job: str) -> str:
     if job:
         jobdirlog += f"/{job}"
     logtime = str(int(time()))
-    dirlogtime = os.path.join(jobdirlog, str(int(time())))
+    dirlogtime = os.path.join(jobdirlog, logtime)
     try:
         if not os.path.isdir(dirlogtime):
             os.makedirs(dirlogtime)
