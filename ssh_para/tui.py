@@ -386,6 +386,10 @@ class Tui:
                 pos = min(pos + h, max(0, len(lines) - h))
             if ch == curses.KEY_PPAGE:
                 pos = max(0, pos - h)
+            if ch in (curses.KEY_HOME, ord('0')):
+                pos = 0 
+            if ch == curses.KEY_END or ch == ord('G'):
+                pos = max(0, len(lines) - h)
             if ch == ord('/'):
                 # prompt for a regexp and compile
                 expr = self.prompt("Search regexp: ")
@@ -453,6 +457,7 @@ class Tui:
     
     def loop(self) -> None:
         curses.curs_set(0)
+        first_item_line = 3
         while True:
             items = self.filtered()
             items_len = len(items)
@@ -469,47 +474,45 @@ class Tui:
             elif ch == curses.KEY_NPAGE:
                 # page down: move by visible page size
                 maxy, maxx = self.stdscr.getmaxyx()
-                first_item_line = 3
                 avail = (maxy - 2) - first_item_line
                 step = max(1, avail)
                 self.cursor = min(items_len - 1, self.cursor + step) if items_len else 0
             elif ch == curses.KEY_PPAGE:
                 # page up: move by visible page size
                 maxy, maxx = self.stdscr.getmaxyx()
-                first_item_line = 3
                 avail = (maxy - 2) - first_item_line
                 step = max(1, avail)
                 self.cursor = max(0, self.cursor - step)
+            elif ch == curses.KEY_END or ch == ord('G'):
+                # jump to last job and make it visible
+                if items_len:
+                    self.cursor = items_len - 1
+                    maxy, maxx = self.stdscr.getmaxyx()
+                    avail = (maxy - 2) - first_item_line
+                    self.top = max(0, items_len - avail)
+            elif ch in (curses.KEY_HOME, ord('0')):
+                self.cursor = 0
             elif ch == ord('p'):
                 # show job names in console and wait for key
                 self.show_names_console()
             elif ch == ord('/'):
                 self.filtered_jobs = None
                 self.text_filter = self.prompt("Search text (regexp): ")
+                self.text_re = None
+                self.text_re_err = True
+                self.text_neg = False
                 # compile regex
-                if self.text_filter:
-                    # support negation prefix: '!pattern' means exclude matches
-                    if self.text_filter.startswith('!'):
-                        self.text_neg = True
-                        expr = self.text_filter[1:]
-                    else:
-                        self.text_neg = False
-                        expr = self.text_filter
-                    if expr:
-                        try:
-                            self.text_re = re.compile(expr, re.IGNORECASE)
-                            self.text_re_err = False
-                        except re.error:
-                            self.text_re = None
-                            self.text_re_err = True
-                    else:
-                        # empty expr after '!' or direct empty -> clear regex but keep neg flag
-                        self.text_re = None
-                        self.text_re_err = False
+                # support negation prefix: '!pattern' means exclude matches
+                if self.text_filter.startswith('!'):
+                    self.text_neg = True
+                    expr = self.text_filter[1:]
                 else:
-                    self.text_re = None
+                    expr = self.text_filter
+                try:
+                    self.text_re = re.compile(expr, re.IGNORECASE)
                     self.text_re_err = False
-                    self.text_neg = False
+                except re.error:
+                    self.text_filter = ""
                 self.cursor = 0
                 self.top = 0
                 
