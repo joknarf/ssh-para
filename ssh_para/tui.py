@@ -547,6 +547,7 @@ class Tui:
                 self.top = 0
             elif ch == ord('r'):
                 self.filtered_jobs = None
+                self.statuses = ["ALL"]
                 if self.summary["end"] == "--:--:--":
                     self.jobs = load_jobs(self.dirlog)
                     self.summary = parse_result(self.dirlog)
