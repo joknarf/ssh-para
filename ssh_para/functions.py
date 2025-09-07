@@ -79,5 +79,8 @@ def last_line(fd: BufferedReader, maxline: int = 1000) -> str:
             line = decode_line(fd.readline())
             break
         line = decode_line(fd.readline())
-        fd.seek(-4, os.SEEK_CUR)
+        try:
+            fd.seek(-4, os.SEEK_CUR)
+        except OSError:
+            break
     return line.strip()
