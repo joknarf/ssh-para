@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Simple curses TUI to browse ssh-para log directory.
+"""Simple curses TUI to browse run-para log directory.
 
 Features:
 - list jobs from a run directory (scan *.out files)
@@ -14,7 +14,7 @@ import os
 import re
 from glob import glob
 from typing import List, Dict, Optional
-from .functions import addstr, curses_init_pairs, CURSES_COLORS
+from .functions import addstr, curses_init_pairs, last_line, CURSES_COLORS
 from .segment import Segment
 from .symbols import SYMBOL_BEGIN, SYMBOL_END
 
@@ -73,11 +73,8 @@ def load_jobs(dirlog: str) -> List[Dict]:
             exit_code = "255"
         elif status == "SUCCESS":
             exit_code = "0"
-        snippet = ""
-        tail = _read_tail(f, maxbytes=2048)
-        if tail:
-            lines = [l for l in tail.splitlines() if l.strip()]
-            snippet = lines[-1] if lines else ""
+        with open(f, "rb") as fd:
+            snippet = last_line(fd)
         jobs.append({
             "name": name,
             "status": status,
