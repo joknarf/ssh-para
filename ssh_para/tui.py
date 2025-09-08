@@ -187,9 +187,8 @@ class Tui:
                     matched_line = hay
                 else:
                     outfile = os.path.join(self.dirlog, f"{j['name']}.out")
-                    tail = _read_tail(outfile)
-                    if tail:
-                        for line in reversed(tail.splitlines()):
+                    with open(outfile, "r", encoding="utf-8") as f:
+                        for line in f:
                             if self.text_re.search(line):
                                 matched = True
                                 matched_line = line
