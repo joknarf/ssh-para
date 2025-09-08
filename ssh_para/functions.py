@@ -56,14 +56,6 @@ def addstrc(stdscr: Optional["curses._CursesWindow"], *args, **kwargs) -> None:
         addstr(stdscr, *args, **kwargs)
         stdscr.clrtoeol()
 
-def decode_line(line: bytes) -> str:
-    """try decode line exception on binary"""
-    try:
-        return line.decode()
-    except UnicodeDecodeError:
-        return ""
-
-
 def last_line(fd: BufferedReader, maxline: int = 1000) -> str:
     """last non empty line of file"""
     line = "\n"
@@ -76,9 +68,9 @@ def last_line(fd: BufferedReader, maxline: int = 1000) -> str:
                 size += 1
         except OSError:
             fd.seek(0)
-            line = decode_line(fd.readline())
+            line = fd.readline().decode(errors="ignore")
             break
-        line = decode_line(fd.readline())
+        line = fd.readline().decode(errors="ignore")
         try:
             fd.seek(-4, os.SEEK_CUR)
         except OSError:

@@ -93,8 +93,8 @@ def load_jobs(dirlog: str) -> List[Dict]:
 def parse_result(dirlog: str) -> Dict[str, str]:
     """Parse ssh-para.result file and return key summary values."""
     result_file = os.path.join(dirlog, "ssh-para.result")
-    summary: Dict[str, str] = { "begin": result_file, "end": str(os.path.isfile(result_file))}
-    # Only read the result file directly inside dirlog
+    summary: Dict[str, str] = {"end": "--:--:--"}
+
     if not os.path.isfile(result_file):
         return summary
     try:
@@ -103,24 +103,23 @@ def parse_result(dirlog: str) -> Dict[str, str]:
     except OSError:
         return summary
     # extract basic fields
-    import re as _re
 
-    m = _re.search(r"begin:\s*([0-9\- :]+)", text)
+    m = re.search(r"begin:\s*([0-9\- :]+)", text)
     if m:
         summary["begin"] = m.group(1).strip()
-    m = _re.search(r"end:\s*([0-9\- :]+)", text)
+    m = re.search(r"end:\s*([0-9\- :]+)", text)
     if m:
         summary["end"] = m.group(1).strip()
-    m = _re.search(r"dur:\s*([0-9:\.]+)", text)
+    m = re.search(r"dur:\s*([0-9:\.]+)", text)
     if m:
         summary["dur"] = m.group(1).strip()
-    m = _re.search(r"runs:\s*([0-9]+\s*/\s*[0-9]+)", text, _re.IGNORECASE)
+    m = re.search(r"runs:\s*([0-9]+\s*/\s*[0-9]+)", text, re.IGNORECASE)
     if m:
         summary["runs"] = m.group(1).strip()
         summary["runs_total"] = summary["runs"].split("/")[1].strip()
     # counts
     for k in ("success", "failed", "timeout", "killed", "aborted"):
-        m = _re.search(rf"{k}:\s*([0-9]+)", text)
+        m = re.search(rf"{k}:\s*([0-9]+)", text)
         if m:
             summary[k] = m.group(1)
     return summary
@@ -140,8 +139,6 @@ class Tui:
         self.text_filter = ""
         self.name_re = None
         self.text_re = None
-        self.name_re_err = False
-        self.text_re_err = False
         self.name_neg = False
         self.text_neg = False
         self.status_idx = 0
@@ -177,27 +174,20 @@ class Tui:
                 continue
             # Command filter: regex (compiled), fall back to substring if empty
             if self.name_filter:
-                if self.name_re_err:
-                    # invalid regex, treat as no match
+                if bool(self.name_re.search(j["name"] or "")) == self.name_neg:
                     continue
-                if self.name_re:
-                    if bool(self.name_re.search(j["name"] or "")) == self.name_neg:
-                        continue
             if self.text_filter:
-                if self.text_re_err:
-                    continue
-                # handle negation separately: if negated, exclude jobs that match
                 hay = j["snippet"] or ""
-                # positive filter: try snippet first, then tail
+                # filter: try snippet first, then tail
                 matched = False
                 matched_line = None
-                if self.text_re and self.text_re.search(hay):
+                if self.text_re.search(hay):
                     matched = True
                     matched_line = hay
                 else:
                     outfile = os.path.join(self.dirlog, f"{j['name']}.out")
                     tail = _read_tail(outfile, maxbytes=8192)
-                    if tail and self.text_re:
+                    if tail:
                         for line in reversed(tail.splitlines()):
                             if self.text_re.search(line):
                                 matched = True
@@ -379,9 +369,9 @@ class Tui:
             if ch in (ord('k'), curses.KEY_UP):
                 if pos > 0:
                     pos -= 1
-            if ch == curses.KEY_NPAGE:
+            if ch in (curses.KEY_NPAGE, 6):
                 pos = min(pos + h, max(0, len(lines) - h))
-            if ch == curses.KEY_PPAGE:
+            if ch in (curses.KEY_PPAGE, 2):
                 pos = max(0, pos - h)
             if ch in (curses.KEY_HOME, ord('0')):
                 pos = 0 
@@ -468,17 +458,15 @@ class Tui:
             elif ch in (curses.KEY_UP, ord('k')):
                 if self.cursor > 0:
                     self.cursor -= 1
-            elif ch == curses.KEY_NPAGE:
+            elif ch in (curses.KEY_NPAGE, 6):
                 # page down: move by visible page size
                 maxy, maxx = self.stdscr.getmaxyx()
-                avail = (maxy - 2) - first_item_line
-                step = max(1, avail)
+                step = max(1, maxy - 2 - first_item_line)
                 self.cursor = min(items_len - 1, self.cursor + step) if items_len else 0
-            elif ch == curses.KEY_PPAGE:
+            elif ch in (curses.KEY_PPAGE, 2):
                 # page up: move by visible page size
                 maxy, maxx = self.stdscr.getmaxyx()
-                avail = (maxy - 2) - first_item_line
-                step = max(1, avail)
+                step = max(1, maxy - 2 - first_item_line)
                 self.cursor = max(0, self.cursor - step)
             elif ch == curses.KEY_END or ch == ord('G'):
                 # jump to last job and make it visible
@@ -496,7 +484,6 @@ class Tui:
                 self.filtered_jobs = None
                 self.text_filter = self.prompt("Search text (regexp): ")
                 self.text_re = None
-                self.text_re_err = True
                 self.text_neg = False
                 # compile regex
                 # support negation prefix: '!pattern' means exclude matches
@@ -507,7 +494,6 @@ class Tui:
                     expr = self.text_filter
                 try:
                     self.text_re = re.compile(expr, re.IGNORECASE)
-                    self.text_re_err = False
                 except re.error:
                     self.text_filter = ""
                 self.cursor = 0
@@ -516,28 +502,20 @@ class Tui:
             elif ch == ord('n'):
                 self.filtered_jobs = None
                 self.name_filter = self.prompt("Name filter (regexp): ")
+                self.name_neg = False
+                self.name_re = None
                 if self.name_filter:
                     # support negation prefix: '!pattern' means exclude matching names
                     if self.name_filter.startswith('!'):
                         self.name_neg = True
                         expr = self.name_filter[1:]
                     else:
-                        self.name_neg = False
                         expr = self.name_filter
                     if expr:
                         try:
                             self.name_re = re.compile(expr, re.IGNORECASE)
-                            self.name_re_err = False
                         except re.error:
-                            self.name_re = None
-                            self.name_re_err = True
-                    else:
-                        self.name_re = None
-                        self.name_re_err = False
-                else:
-                    self.name_re = None
-                    self.name_re_err = False
-                    self.name_neg = False
+                            self.name_filter = ""
                 self.cursor = 0
                 self.top = 0
             elif ch == ord('s'):
