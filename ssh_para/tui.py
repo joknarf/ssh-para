@@ -20,16 +20,17 @@ from .symbols import SYMBOL_BEGIN, SYMBOL_END
 
 STATUSES = ["ALL", "SUCCESS", "FAILED", "TIMEOUT", "KILLED", "ABORTED"]
 
-def _read_tail(path: str, maxbytes: int = 4096) -> str:
+def _read_tail(path: str, maxbytes: Optional[int] = None) -> str:
     try:
         with open(path, "rb") as fd:
-            fd.seek(0, os.SEEK_END)
-            size = fd.tell()
-            start = max(0, size - maxbytes)
-            fd.seek(start)
+            if maxbytes:
+                fd.seek(0, os.SEEK_END)
+                size = fd.tell()
+                start = max(0, size - maxbytes)
+                fd.seek(start)
             data = fd.read()
         try:
-            return data.decode(errors="replace").strip()
+            return data.decode(errors="ignore").strip()
         except Exception:
             return ""
     except OSError:
@@ -186,7 +187,7 @@ class Tui:
                     matched_line = hay
                 else:
                     outfile = os.path.join(self.dirlog, f"{j['name']}.out")
-                    tail = _read_tail(outfile, maxbytes=8192)
+                    tail = _read_tail(outfile)
                     if tail:
                         for line in reversed(tail.splitlines()):
                             if self.text_re.search(line):
