@@ -7,7 +7,6 @@ Features:
 - open a job output with Enter
 - keys: up/down, j/k, / (output search), n (name search), s (cycle status), r (reset), q (quit)
 """
-from __future__ import annotations
 
 import curses
 import os
@@ -217,9 +216,9 @@ class Tui:
         maxy, maxx = self.stdscr.getmaxyx()
         # summary line from ssh-para.result (display first if present)
         sumline = [
-            f"runs: {self.counts["runs"]}/{self.summary.get('runs_total', '?')}",
-            f"success: {self.counts["success"]}",
-            f"failed: {self.counts["failed"]}",
+            f"runs: {self.counts['runs']}/{self.summary.get('runs_total', '?')}",
+            f"success: {self.counts['success']}",
+            f"failed: {self.counts['failed']}",
             f"begin: {self.summary.get('begin', '')}",
             f"end: {self.summary.get('end', '')}",
             f"dur: {self.summary.get('dur', '')}"
