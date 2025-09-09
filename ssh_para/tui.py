@@ -149,7 +149,7 @@ class Tui:
         self.init_color()
         try:
             with open(os.path.join(dirlog, "ssh-para.command"), "r", encoding="utf-8", errors="replace") as fd:
-                self.command = fd.read().strip().split("Command: ")[-1]
+                self.command = fd.read().strip().split("Command: ")[-1].split("\n")[0]
         except Exception:
             self.command = ""
 
