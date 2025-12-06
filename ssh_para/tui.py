@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Simple curses TUI to browse run-para log directory.
+"""Simple curses TUI to browse ssh-para log directory.
 
 Features:
 - list jobs from a run directory (scan *.out files)
@@ -13,7 +13,7 @@ import os
 import re
 from glob import glob
 from typing import List, Dict, Optional
-from .functions import addstr, curses_init_pairs, last_line, CURSES_COLORS
+from .functions import addstr, curses_init_pairs, last_line, strip_ansi, CURSES_COLORS
 from .segment import Segment
 from .symbols import SYMBOL_BEGIN, SYMBOL_END
 
@@ -279,10 +279,11 @@ class Tui:
     def view_output(self, job: Dict) -> None:
         # open a simple fullscreen viewer
         maxy, maxx = self.stdscr.getmaxyx()
+        re_r = re.compile(br"\n.*\r")
         try:
             outfile = os.path.join(self.dirlog, f"{job['name']}.out")
-            with open(outfile, "r", encoding="utf-8", errors="replace") as fd:
-                lines = fd.read().splitlines()
+            with open(outfile, "rb") as fd:
+                lines = strip_ansi(re_r.sub(b"\n", fd.read())).decode(errors="ignore").splitlines()
         except OSError:
             lines = ["(no output file)"]
         pos = 0

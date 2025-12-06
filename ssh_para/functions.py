@@ -1,5 +1,6 @@
 import os
 import curses
+import re
 from typing import Optional
 from io import BufferedReader
 
@@ -14,6 +15,11 @@ CURSES_COLORS = {
     "GAUGE": 108,
     "HOST": 110,
 }
+ANSI_ESCAPE = re.compile(br'(\x1B\[\??([0-9]{1,2};){0,4}[0-9]{1,3}[m|Klh]|\x1B\[[0-9;]*[mGKHF])')
+
+def strip_ansi(text):
+    """Remove ANSI and control characters from the text."""
+    return ANSI_ESCAPE.sub(b'', text)
 
 def curses_init_pairs() -> None:
         status_color = CURSES_COLORS
@@ -58,21 +64,21 @@ def addstrc(stdscr: Optional["curses._CursesWindow"], *args, **kwargs) -> None:
 
 def last_line(fd: BufferedReader, maxline: int = 1000) -> str:
     """last non empty line of file"""
-    line = "\n"
+    line = b"\n"
     fd.seek(0, os.SEEK_END)
     size = 0
-    while line in ["\n", "\r"] and size < maxline:
+    while line in [b"\n", b"\r"] and size < maxline:
         try:  # catch if file empty / only empty lines
             while fd.read(1) not in [b"\n", b"\r"]:
                 fd.seek(-2, os.SEEK_CUR)
                 size += 1
         except OSError:
             fd.seek(0)
-            line = fd.readline().decode(errors="ignore")
+            line = fd.readline()
             break
-        line = fd.readline().decode(errors="ignore")
+        line = fd.readline()
         try:
             fd.seek(-4, os.SEEK_CUR)
         except OSError:
             break
-    return line.strip()
+    return strip_ansi(line).decode(errors="ignore").strip()
