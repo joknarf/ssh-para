@@ -62,7 +62,7 @@ jobs:
       - name: Build DEB
         run: |
           fpm -s dir -t deb --license=MIT --maintainer=joknarf --prefix=/usr -m joknarf@free.fr --description="$DESC" -n $TOOL -v $VERSION --url=https://github.com/joknarf/$TOOL $TOOL_PATH=/bin/$TOOL
-          ln -s ${TOOL}_${VERSION}_amd64.deb $TOOL-amd64.deb
+          ln -s ${TOOL}_${VERSION}_amd64.deb ${TOOL}_amd64.deb
 
       - name: Build RPM
         run: |
@@ -72,7 +72,7 @@ jobs:
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ssh-para-*
+          files: ssh-para[_-]*
 
   build-linux-aarch64:
     runs-on: ubuntu-24.04-arm
