@@ -11,15 +11,26 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        arch:
+          - x86_64
+          - aarch64
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Build with manylinux2014
+      - name: Build with manylinux (${{ matrix.arch }})
         run: |
+          set -e
+
+          IMAGE=quay.io/pypa/manylinux2014_${{ matrix.arch }}
+          OUT=ssh-para-linux-${{ matrix.arch }}
+
           docker run --rm \
             -v "$PWD:/src" \
-            quay.io/pypa/manylinux2014_x86_64 \
+            $IMAGE \
             bash -c "
               set -e
               cd /opt/_internal
@@ -33,11 +44,11 @@ jobs:
               \$PYBIN -m pip install --upgrade pip
               \$PYBIN -m pip install nuitka ssh-para
 
-              \$PYBIN -m nuitka --onefile --follow-imports --assume-yes-for-downloads --output-filename=ssh-para-linux-x86_64 --main=ssh_para/ssh_para.py
+              \$PYBIN -m nuitka --onefile --follow-imports --assume-yes-for-downloads --output-filename=$OUT --main=ssh_para/ssh_para.py
             "
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ssh-para-linux-x86_64
+          files: ssh-para-linux-*
 
