@@ -84,3 +84,59 @@ jobs:
         with:
           files: ssh-para-linux-*
 
+  build-macos-x86_64:
+    runs-on: macos-13
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build with Nuitka
+        run: |
+          set -e
+
+          OUT=ssh-para-macos-x86-64
+
+          python -m pip install --upgrade pip
+          python -m pip install nuitka ssh-para
+
+          python -m nuitka --onefile --follow-imports --assume-yes-for-downloads --output-filename=$OUT --main=ssh_para/ssh_para.py
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ssh-para-macos-*
+
+  build-macos-arm64:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build with Nuitka
+        run: |
+          set -e
+
+          OUT=ssh-para-macos-arm64
+
+          python -m pip install --upgrade pip
+          python -m pip install nuitka ssh-para
+
+          python -m nuitka --onefile --follow-imports --assume-yes-for-downloads --output-filename=$OUT --main=ssh_para/ssh_para.py
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ssh-para-macos-*
+
