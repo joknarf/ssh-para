@@ -47,6 +47,7 @@ jobs:
               set -e
               cd /opt/_internal
               tar xf static-libs-for-embedding-only.tar.xz
+              yum install -y ncurses ncurses-devel
 
               cd /src
 
