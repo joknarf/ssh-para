@@ -15,6 +15,24 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y ruby ruby-dev build-essential rpm
+          sudo gem install --no-document fpm
+
+      - name: Set version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          fi
+          echo "ARCH=x86_64"
+          echo "TOOL=ssh-para" >> $GITHUB_ENV
+          echo "TOOL_PATH=ssh-para-linux-x86_64" >>$GITHUB_ENV
+          echo "DESC=parallel ssh job manager" >> $GITHUB_ENV
+
       - name: Build with manylinux (x86_64)
         run: |
           set -e
@@ -41,10 +59,20 @@ jobs:
               \$PYBIN -m nuitka --onefile --follow-imports --assume-yes-for-downloads --output-filename=$OUT --main=ssh_para/ssh_para.py
             "
 
+      - name: Build DEB
+        run: |
+          fpm -s dir -t deb --license=MIT --maintainer=joknarf --prefix=/usr -m joknarf@free.fr --description="$DESC" -n $TOOL -v $VERSION --url=https://github.com/joknarf/$TOOL $TOOL_PATH=/bin/$TOOL
+          ln -s ${TOOL}_${VERSION}_amd64.deb $TOOL-amd64.deb
+
+      - name: Build RPM
+        run: |
+          fpm -s dir -t rpm --license=MIT --maintainer=joknarf --prefix=/usr -m joknarf@free.fr --description="$DESC" -n $TOOL -v $VERSION --url=https://github.com/joknarf/$TOOL $TOOL_PATH=/bin/$TOOL
+          ln -s $TOOL-$VERSION-1.x86_64.rpm $TOOL-x86_64.rpm
+
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ssh-para-linux-*
+          files: ssh-para-*
 
   build-linux-aarch64:
     runs-on: ubuntu-24.04-arm
