@@ -27,7 +27,7 @@ jobs:
               \$PYBIN -m pip install --upgrade pip
               \$PYBIN -m pip install nuitka ssh-para
 
-              \$PYBIN -m nuitka --onefile --follow-imports --assume-yes-for-downloads --output-filename=ssh-para-linux-x86_64 --main=ssh_para/ssh_para.py
+              \$PYBIN -m nuitka --onefile --follow-imports --static-libpython=no --assume-yes-for-downloads --output-filename=ssh-para-linux-x86_64 --main=ssh_para/ssh_para.py
             "
 
       - name: Upload to GitHub Release
