@@ -224,13 +224,6 @@ jobs:
           files: |
             dist/ssh-para*
 
-name: Build Windows binary
-
-on:
-  push:
-    tags:
-      - "*"
-
   build-windows:
     runs-on: windows-latest
 
