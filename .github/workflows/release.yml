@@ -224,3 +224,42 @@ jobs:
           files: |
             dist/ssh-para*
 
+name: Build Windows binary
+
+on:
+  push:
+    tags:
+      - "*"
+
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Set version
+        shell: bash
+        run: |
+            echo "__version__='${{ github.event.release.tag_name }}'" >ssh_para/version.py
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install pyinstaller ssh-para
+
+      - name: Build binary with PyInstaller
+        run: |
+          pyinstaller --onefile --name ssh-para-windows-x86_64 ssh_para\ssh_para.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ssh-para-windows-x86_64.exe
+          path: dist/ssh-para-windows-x86_64.exe
+
