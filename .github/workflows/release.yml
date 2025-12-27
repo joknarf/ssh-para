@@ -30,7 +30,7 @@ jobs:
           fi
           echo "ARCH=x86_64"
           echo "TOOL=ssh-para" >> $GITHUB_ENV
-          echo "TOOL_PATH=ssh-para-linux-x86_64" >>$GITHUB_ENV
+          echo "TOOL_PATH=dist/ssh-para-linux-x86_64" >>$GITHUB_ENV
           echo "DESC=parallel ssh job manager" >> $GITHUB_ENV
 
       - name: Build with manylinux (x86_64)
@@ -55,9 +55,9 @@ jobs:
               PYBIN=/opt/python/cp311-cp311/bin/python
 
               \$PYBIN -m pip install --upgrade pip
-              \$PYBIN -m pip install nuitka ssh-para
+              \$PYBIN -m pip install pyinstaller ssh-para
 
-              \$PYBIN -m nuitka --onefile --follow-imports --assume-yes-for-downloads --include-data-dir=/usr/share/terminfo=terminfo --output-filename=$OUT --main=ssh_para/ssh_para.py
+              pyinstaller --onefile --add-data-dir=/usr/share/terminfo=terminfo --name=$OUT ssh_para/ssh_para.py
             "
 
       - name: Build DEB
@@ -73,7 +73,7 @@ jobs:
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ssh-para[_-]*
+          files: ssh-para[_-]* dist/ssh-para*
 
   build-linux-aarch64:
     runs-on: ubuntu-24.04-arm
