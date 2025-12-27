@@ -54,8 +54,9 @@ jobs:
               # Choose a specific Python version available in manylinux
               PYBIN=/opt/python/cp311-cp311/bin/python
 
-              \$PYBIN -m pip install --upgrade pip
-              \$PYBIN -m pip install pyinstaller ssh-para
+              \$PYBIN -m venv .venv
+              source .venv/bin/activate
+              pip install pyinstaller ssh-para
 
               pyinstaller --onefile --add-data-dir=/usr/share/terminfo=terminfo --name=$OUT ssh_para/ssh_para.py
             "
