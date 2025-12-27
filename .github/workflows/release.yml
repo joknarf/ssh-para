@@ -7,6 +7,23 @@ on:
 permissions:
   contents: write
 
+env:
+  TOOL: ${{ github.event.repository.name }}
+  #TOOL_PATH: ${{ github.event.repository.name }}
+  DESC: parallel ssh job manager
+  VERSION: ${{ github.event.release.tag_name }}
+  VERSION_PY: ssh_para/version.py
+  TOOL_PY: ssh_para/ssh_para.py
+  FPM_BASE: >
+    -s dir
+    --license=MIT
+    --maintainer=${{ github.repository_owner }}
+    -m joknarf@free.fr
+    -n ${{ github.event.repository.name }}
+    --url=https://github.com/${{ github.repository }}
+    -v ${{ github.event.release.tag_name }}
+
+
 jobs:
   build-linux-x86_64:
     runs-on: ubuntu-latest
@@ -21,25 +38,16 @@ jobs:
           sudo apt install -y ruby ruby-dev build-essential rpm
           sudo gem install --no-document fpm
 
-      - name: Set version
+      - name: Set environment variables
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            echo "VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
-          else
-            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-          fi
-          echo "ARCH=x86_64"
-          echo "TOOL=ssh-para" >> $GITHUB_ENV
-          echo "TOOL_PATH=dist/ssh-para-linux-x86_64" >>$GITHUB_ENV
-          echo "DESC=parallel ssh job manager" >> $GITHUB_ENV
+          OUT=${TOOL}-linux-x86_64
+          echo "OUT=$OUT" >>$GITHUB_ENV
+          echo "TOOL_PATH=dist/$OUT" >>$GITHUB_ENV
 
       - name: Build with manylinux (x86_64)
         run: |
           set -e
-
           IMAGE=quay.io/pypa/manylinux2014_x86_64
-          OUT=ssh-para-linux-x86_64
-
           docker run --rm \
             -v "$PWD:/src" \
             $IMAGE \
@@ -47,23 +55,22 @@ jobs:
               set -e
               yum install -y ncurses ncurses-devel python3
               cd /src
-              PYBIN=/usr/bin/python3
-              \$PYBIN -m venv .venv
+              /usr/bin/python3 -m venv .venv
               source .venv/bin/activate
               pip install wheel
-              pip install pyinstaller ssh-para
-              echo \"__version__ = '$VERSION'\" >ssh_para/version.py
-              pyinstaller --onefile --add-data=/usr/share/terminfo:terminfo --name=$OUT ssh_para/ssh_para.py
+              pip install pyinstaller $TOOL
+              echo \"__version__ = '$VERSION'\" >$VERSION_PY
+              pyinstaller --onefile --add-data=/usr/share/terminfo:terminfo --name=$OUT $TOOL_PY
             "
 
       - name: Build DEB
         run: |
-          fpm -s dir -t deb --license=MIT --maintainer=joknarf --prefix=/usr -m joknarf@free.fr --description="$DESC" -n $TOOL -v $VERSION --url=https://github.com/joknarf/$TOOL $TOOL_PATH=/bin/$TOOL
+          fpm $FPM_BASE -t deb --prefix=/usr --description="$DESC" $TOOL_PATH=/bin/$TOOL
           ln -s ${TOOL}_${VERSION}_amd64.deb ${TOOL}_amd64.deb
 
       - name: Build RPM
         run: |
-          fpm -s dir -t rpm --license=MIT --maintainer=joknarf --prefix=/usr -m joknarf@free.fr --description="$DESC" -n $TOOL -v $VERSION --url=https://github.com/joknarf/$TOOL $TOOL_PATH=/bin/$TOOL
+          fpm $FPM_BASE -t rpm --prefix=/usr --description="$DESC" $TOOL_PATH=/bin/$TOOL
           ln -s $TOOL-$VERSION-1.x86_64.rpm $TOOL-x86_64.rpm
 
       - name: Upload to GitHub Release
@@ -72,7 +79,7 @@ jobs:
           files: |
             *.rpm
             *.deb
-            dist/ssh-para*
+            dist/*
 
   build-linux-aarch64:
     runs-on: ubuntu-24.04-arm
@@ -87,25 +94,16 @@ jobs:
           sudo apt install -y ruby ruby-dev build-essential rpm
           sudo gem install --no-document fpm
 
-      - name: Set version
+      - name: Set environment variables
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            echo "VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
-          else
-            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-          fi
-          echo "ARCH=aarch64" >>$GITHUB_ENV
-          echo "TOOL=ssh-para" >> $GITHUB_ENV
-          echo "TOOL_PATH=dist/ssh-para-linux-aarch64" >>$GITHUB_ENV
-          echo "DESC=parallel ssh job manager" >> $GITHUB_ENV
+          OUT=${TOOL}-linux-aarch64
+          echo "OUT=$OUT" >>$GITHUB_ENV
+          echo "TOOL_PATH=dist/$OUT" >>$GITHUB_ENV
 
       - name: Build with manylinux (aarch64)
         run: |
           set -e
-
           IMAGE=quay.io/pypa/manylinux2014_aarch64
-          OUT=ssh-para-linux-aarch64
-
           docker run --rm \
             -v "$PWD:/src" \
             $IMAGE \
@@ -117,20 +115,19 @@ jobs:
               \$PYBIN -m venv .venv
               source .venv/bin/activate
               pip install wheel
-              pip install pyinstaller ssh-para
-              echo \"__version__ = '$VERSION'\" >ssh_para/version.py
-              pyinstaller --onefile --add-data=/usr/share/terminfo:terminfo --name=$OUT ssh_para/ssh_para.py
+              pip install pyinstaller $TOOL
+              echo \"__version__ = '$VERSION'\" >$VERSION_PY
+              pyinstaller --onefile --add-data=/usr/share/terminfo:terminfo --name=$OUT $TOOL_PY
             "
       - name: Build DEB
         run: |
-          fpm -s dir -t deb --license=MIT --maintainer=joknarf --prefix=/usr -m joknarf@free.fr --description="$DESC" -n $TOOL -v $VERSION --url=https://github.com/joknarf/$TOOL $TOOL_PATH=/bin/$TOOL
+          fpm $FPM_BASE -t deb --prefix=/usr --description="$DESC" $TOOL_PATH=/bin/$TOOL
           ln -s ${TOOL}_${VERSION}_arm64.deb ${TOOL}_arm64.deb
 
       - name: Build RPM
         run: |
-          fpm -s dir -t rpm --license=MIT --maintainer=joknarf --prefix=/usr -m joknarf@free.fr --description="$DESC" -n $TOOL -v $VERSION --url=https://github.com/joknarf/$TOOL $TOOL_PATH=/bin/$TOOL
+          fpm $FPM_BASE -t rpm --prefix=/usr --description="$DESC" $TOOL_PATH=/bin/$TOOL
           ln -s $TOOL-$VERSION-1.aarch64.rpm $TOOL-aarch64.rpm
-
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
@@ -138,7 +135,7 @@ jobs:
           files: |
             *.rpm
             *.deb
-            dist/ssh-para*
+            dist/*
 
   build-macos-x86_64:
     runs-on: macos-15-intel
@@ -147,17 +144,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Set version
+      - name: Set environment variables
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            echo "VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
-          else
-            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-          fi
-          echo "ARCH=aarch64" >>$GITHUB_ENV
-          echo "TOOL=ssh-para" >> $GITHUB_ENV
-          echo "TOOL_PATH=dist/ssh-para-linux-aarch64" >>$GITHUB_ENV
-          echo "DESC=parallel ssh job manager" >> $GITHUB_ENV
+          OUT=${TOOL}-macos-amd64
+          echo "OUT=$OUT" >>$GITHUB_ENV
+          echo "TOOL_PATH=dist/$OUT" >>$GITHUB_ENV
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -167,20 +158,18 @@ jobs:
       - name: Build with macos intel
         run: |
           set -e
-          OUT=ssh-para-macos-amd64
           python -m venv .venv
           source .venv/bin/activate
           pip install --upgrade pip
           pip install wheel
-          pip install pyinstaller ssh-para
-          echo "__version__ = '$VERSION'" >ssh_para/version.py
-          pyinstaller --onefile --add-data="/usr/share/terminfo:terminfo" --name=$OUT ssh_para/ssh_para.py
+          pip install pyinstaller $TOOL
+          echo "__version__ = '$VERSION'" >$VERSION_PY
+          pyinstaller --onefile --add-data="/usr/share/terminfo:terminfo" --name=$OUT $TOOL_PY
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            dist/ssh-para*
+          files: dist/${{ env.OUT }}
 
   build-macos-arm64:
     runs-on: macos-14
@@ -189,17 +178,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Set version
+      - name: Set environment variables
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            echo "VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
-          else
-            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-          fi
-          echo "ARCH=aarch64" >>$GITHUB_ENV
-          echo "TOOL=ssh-para" >> $GITHUB_ENV
-          echo "TOOL_PATH=dist/ssh-para-linux-aarch64" >>$GITHUB_ENV
-          echo "DESC=parallel ssh job manager" >> $GITHUB_ENV
+          OUT=${TOOL}-macos-arm64
+          echo "OUT=$OUT" >>$GITHUB_ENV
+          echo "TOOL_PATH=dist/$OUT" >>$GITHUB_ENV
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -209,20 +192,18 @@ jobs:
       - name: Build with macos arm64
         run: |
           set -e
-          OUT=ssh-para-macos-arm64
           python -m venv .venv
           source .venv/bin/activate
           pip install --upgrade pip
           pip install wheel
-          pip install pyinstaller ssh-para
-          echo "__version__ = '$VERSION'" >ssh_para/version.py
-          pyinstaller --onefile --add-data="/usr/share/terminfo:terminfo" --name=$OUT ssh_para/ssh_para.py
+          pip install pyinstaller $TOOL
+          echo "__version__ = '$VERSION'" >$VERSION_PY
+          pyinstaller --onefile --add-data="/usr/share/terminfo:terminfo" --name=$OUT $TOOL_PY
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            dist/ssh-para*
+          files: dist/${{ env.OUT }}
 
   build-windows:
     runs-on: windows-latest
@@ -234,7 +215,8 @@ jobs:
       - name: Set version
         shell: bash
         run: |
-            echo "__version__='${{ github.event.release.tag_name }}'" >ssh_para/version.py
+          OUT=${TOOL}-windows-x86_64
+          echo "OUT=$OUT" >>$GITHUB_ENV
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -244,15 +226,15 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install pyinstaller ssh-para
+          pip install pyinstaller $TOOL
 
       - name: Build binary with PyInstaller
         run: |
-          pyinstaller --onefile --name ssh-para-windows-x86_64 ssh_para\ssh_para.py
+          echo "__version__ = '$VERSION'" >$VERSION_PY
+          pyinstaller --onefile --name $OUT $TOOL_PY
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            dist/ssh-para*
+          files: dist/${{ env.OUT }}.exe
 
