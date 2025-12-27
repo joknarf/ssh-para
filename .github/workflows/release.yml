@@ -212,7 +212,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Set version
+      - name: Set environment variables
         shell: bash
         run: |
           OUT=${TOOL}-windows-x86_64
@@ -231,7 +231,7 @@ jobs:
       - name: Build binary with PyInstaller
         run: |
           echo "__version__ = '$VERSION'" >$VERSION_PY
-          pyinstaller --onefile --name $OUT $TOOL_PY
+          pyinstaller --onefile --name=$OUT $TOOL_PY
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
