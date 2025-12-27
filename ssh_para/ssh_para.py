@@ -34,10 +34,6 @@ from ssh_para.segment import Segment
 
 os.environ["TERM"] = "xterm-256color"
 
-if getattr(sys, "frozen", False):
-    terminfo_path = os.path.join(sys._MEIPASS, "terminfo")
-    os.environ["TERMINFO"] = terminfo_path
-
 DNS_DOMAINS = os.environ.get("SSHP_DOMAINS") or ""
 SSH_OPTS = os.environ.get("SSHP_OPTS") or ""
 MAX_DOTS = int(os.environ.get("SSHP_MAX_DOTS") or 1)
