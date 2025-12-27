@@ -56,6 +56,7 @@ jobs:
 
               \$PYBIN -m venv .venv
               source .venv/bin/activate
+              pip install wheel
               pip install pyinstaller ssh-para
 
               pyinstaller --onefile --add-data="/usr/share/terminfo:terminfo" --name=$OUT ssh_para/ssh_para.py
