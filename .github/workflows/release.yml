@@ -80,6 +80,12 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y ruby ruby-dev build-essential rpm
+          sudo gem install --no-document fpm
+
       - name: Set version
         run: |
           if [ "${{ github.event_name }}" = "release" ]; then
