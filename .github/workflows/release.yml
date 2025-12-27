@@ -224,14 +224,11 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip setuptools wheel
-          pip install pyinstaller $TOOL
-
       - name: Build binary with PyInstaller
         shell: pwsh
         run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install pyinstaller $env:TOOL
           pyinstaller --onefile --name=$env:OUT $env:TOOL_PY
 
       - name: Upload to GitHub Release
