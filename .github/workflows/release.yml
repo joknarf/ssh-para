@@ -70,7 +70,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ssh-para[_-]*
+            *.rpm
+            *.deb
             dist/ssh-para*
 
   build-linux-aarch64:
@@ -93,7 +94,7 @@ jobs:
           else
             echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
           fi
-          echo "ARCH=aarch64"
+          echo "ARCH=aarch64" >>$GITHUB_ENV
           echo "TOOL=ssh-para" >> $GITHUB_ENV
           echo "TOOL_PATH=dist/ssh-para-linux-aarch64" >>$GITHUB_ENV
           echo "DESC=parallel ssh job manager" >> $GITHUB_ENV
@@ -123,7 +124,7 @@ jobs:
       - name: Build DEB
         run: |
           fpm -s dir -t deb --license=MIT --maintainer=joknarf --prefix=/usr -m joknarf@free.fr --description="$DESC" -n $TOOL -v $VERSION --url=https://github.com/joknarf/$TOOL $TOOL_PATH=/bin/$TOOL
-          ln -s ${TOOL}_${VERSION}_aarch64.deb ${TOOL}_aarch64.deb
+          ln -s ${TOOL}_${VERSION}_arm64.deb ${TOOL}_arm64.deb
 
       - name: Build RPM
         run: |
@@ -135,7 +136,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ssh-para[_-]*
+            *.rpm
+            *.deb
             dist/ssh-para*
 
   build-macos-x86_64:
@@ -145,6 +147,18 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      - name: Set version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          fi
+          echo "ARCH=aarch64" >>$GITHUB_ENV
+          echo "TOOL=ssh-para" >> $GITHUB_ENV
+          echo "TOOL_PATH=dist/ssh-para-linux-aarch64" >>$GITHUB_ENV
+          echo "DESC=parallel ssh job manager" >> $GITHUB_ENV
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -153,7 +167,7 @@ jobs:
       - name: Build with macos intel
         run: |
           set -e
-          OUT=ssh-para-macos-x86-64
+          OUT=ssh-para-macos-amd64
           python -m venv .venv
           source .venv/bin/activate
           pip install --upgrade pip
@@ -166,7 +180,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ssh-para-macos-*
             dist/ssh-para*
 
   build-macos-arm64:
@@ -176,6 +189,18 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      - name: Set version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          fi
+          echo "ARCH=aarch64" >>$GITHUB_ENV
+          echo "TOOL=ssh-para" >> $GITHUB_ENV
+          echo "TOOL_PATH=dist/ssh-para-linux-aarch64" >>$GITHUB_ENV
+          echo "DESC=parallel ssh job manager" >> $GITHUB_ENV
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -184,7 +209,7 @@ jobs:
       - name: Build with macos arm64
         run: |
           set -e
-          OUT=ssh-para-macos-x86-64
+          OUT=ssh-para-macos-arm64
           python -m venv .venv
           source .venv/bin/activate
           pip install --upgrade pip
@@ -197,6 +222,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ssh-para-macos-*
             dist/ssh-para*
 
