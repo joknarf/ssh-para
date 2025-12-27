@@ -47,12 +47,12 @@ jobs:
               set -e
               cd /opt/_internal
               tar xf static-libs-for-embedding-only.tar.xz
-              yum install -y ncurses ncurses-devel
+              yum install -y ncurses ncurses-devel python3
 
               cd /src
 
               # Choose a specific Python version available in manylinux
-              PYBIN=/opt/python/cp311-cp311/bin/python
+              PYBIN=/usr/bin/python3
 
               \$PYBIN -m venv .venv
               source .venv/bin/activate
