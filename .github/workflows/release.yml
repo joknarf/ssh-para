@@ -58,7 +58,7 @@ jobs:
               source .venv/bin/activate
               pip install pyinstaller ssh-para
 
-              pyinstaller --onefile --add-data=/usr/share/terminfo=terminfo --name=$OUT ssh_para/ssh_para.py
+              pyinstaller --onefile --add-data="/usr/share/terminfo:terminfo" --name=$OUT ssh_para/ssh_para.py
             "
 
       - name: Build DEB
