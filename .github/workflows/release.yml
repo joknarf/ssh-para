@@ -250,9 +250,9 @@ jobs:
         run: |
           pyinstaller --onefile --name ssh-para-windows-x86_64 ssh_para\ssh_para.py
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: ssh-para-windows-x86_64.exe
-          path: dist/ssh-para-windows-x86_64.exe
+          files: |
+            dist/ssh-para*
 
