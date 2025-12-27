@@ -45,22 +45,15 @@ jobs:
             $IMAGE \
             bash -c "
               set -e
-              cd /opt/_internal
-              tar xf static-libs-for-embedding-only.tar.xz
               yum install -y ncurses ncurses-devel python3
-
               cd /src
-
-              # Choose a specific Python version available in manylinux
               PYBIN=/usr/bin/python3
-
               \$PYBIN -m venv .venv
               source .venv/bin/activate
               pip install wheel
               pip install pyinstaller ssh-para
               echo \"__version__ = '$VERSION'\" >ssh_para/version.py
-
-              pyinstaller --onefile --add-data="/usr/share/terminfo:terminfo" --name=$OUT ssh_para/ssh_para.py
+              pyinstaller --onefile --add-data=/usr/share/terminfo:terminfo --name=$OUT ssh_para/ssh_para.py
             "
 
       - name: Build DEB
@@ -87,6 +80,18 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      - name: Set version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          fi
+          echo "ARCH=aarch64"
+          echo "TOOL=ssh-para" >> $GITHUB_ENV
+          echo "TOOL_PATH=dist/ssh-para-linux-aarch64" >>$GITHUB_ENV
+          echo "DESC=parallel ssh job manager" >> $GITHUB_ENV
+
       - name: Build with manylinux (aarch64)
         run: |
           set -e
@@ -99,24 +104,33 @@ jobs:
             $IMAGE \
             bash -c "
               set -e
-              cd /opt/_internal
-              tar xf static-libs-for-embedding-only.tar.xz
-
+              yum install -y ncurses ncurses-devel python3
               cd /src
-
-              # Choose a specific Python version available in manylinux
-              PYBIN=/opt/python/cp311-cp311/bin/python
-
-              \$PYBIN -m pip install --upgrade pip
-              \$PYBIN -m pip install nuitka ssh-para
-
-              \$PYBIN -m nuitka --onefile --follow-imports --assume-yes-for-downloads --output-filename=$OUT --main=ssh_para/ssh_para.py
+              PYBIN=/usr/bin/python3
+              \$PYBIN -m venv .venv
+              source .venv/bin/activate
+              pip install wheel
+              pip install pyinstaller ssh-para
+              echo \"__version__ = '$VERSION'\" >ssh_para/version.py
+              pyinstaller --onefile --add-data=/usr/share/terminfo:terminfo --name=$OUT ssh_para/ssh_para.py
             "
+      - name: Build DEB
+        run: |
+          fpm -s dir -t deb --license=MIT --maintainer=joknarf --prefix=/usr -m joknarf@free.fr --description="$DESC" -n $TOOL -v $VERSION --url=https://github.com/joknarf/$TOOL $TOOL_PATH=/bin/$TOOL
+          ln -s ${TOOL}_${VERSION}_aarch64.deb ${TOOL}_aarch64.deb
+
+      - name: Build RPM
+        run: |
+          fpm -s dir -t rpm --license=MIT --maintainer=joknarf --prefix=/usr -m joknarf@free.fr --description="$DESC" -n $TOOL -v $VERSION --url=https://github.com/joknarf/$TOOL $TOOL_PATH=/bin/$TOOL
+          ln -s $TOOL-$VERSION-1.aarch64.rpm $TOOL-aarch64.rpm
+
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ssh-para-linux-*
+          files: |
+            ssh-para[_-]*
+            dist/ssh-para*
 
   build-macos-x86_64:
     runs-on: macos-15-intel
@@ -130,21 +144,24 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Build with Nuitka
+      - name: Build with macos intel
         run: |
           set -e
-
           OUT=ssh-para-macos-x86-64
-
-          python -m pip install --upgrade pip
-          python -m pip install nuitka ssh-para
-
-          python -m nuitka --onefile --follow-imports --assume-yes-for-downloads --output-filename=$OUT --main=ssh_para/ssh_para.py
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install wheel
+          pip install pyinstaller ssh-para
+          echo "__version__ = '$VERSION'" >ssh_para/version.py
+          pyinstaller --onefile --add-data="/usr/share/terminfo:terminfo" --name=$OUT ssh_para/ssh_para.py
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ssh-para-macos-*
+          files: |
+            ssh-para-macos-*
+            dist/ssh-para*
 
   build-macos-arm64:
     runs-on: macos-14
@@ -158,19 +175,22 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Build with Nuitka
+      - name: Build with macos arm64
         run: |
           set -e
-
-          OUT=ssh-para-macos-arm64
-
-          python -m pip install --upgrade pip
-          python -m pip install nuitka ssh-para
-
-          python -m nuitka --onefile --follow-imports --assume-yes-for-downloads --output-filename=$OUT --main=ssh_para/ssh_para.py
+          OUT=ssh-para-macos-x86-64
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install wheel
+          pip install pyinstaller ssh-para
+          echo "__version__ = '$VERSION'" >ssh_para/version.py
+          pyinstaller --onefile --add-data="/usr/share/terminfo:terminfo" --name=$OUT ssh_para/ssh_para.py
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ssh-para-macos-*
+          files: |
+            ssh-para-macos-*
+            dist/ssh-para*
 
