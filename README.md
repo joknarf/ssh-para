@@ -27,6 +27,7 @@ using pip
 pip install ssh-para
 ```
 or use binary/package in github release assets
+
 By default, `ssh-para` uses Nerd Fonts glyphs, modern terminals can now render the glyphs without installing specific font (the symbols can be overridden with SSHP_SYM_* environment variables, see below)
 
 ## quick start
