@@ -217,6 +217,7 @@ jobs:
         run: |
           OUT=${TOOL}-windows-x86_64
           echo "OUT=$OUT" >>$GITHUB_ENV
+          echo "__version__ = '$VERSION'" >$VERSION_PY
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -229,9 +230,9 @@ jobs:
           pip install pyinstaller $TOOL
 
       - name: Build binary with PyInstaller
+        shell: pwsh
         run: |
-          echo "__version__ = '$VERSION'" >$VERSION_PY
-          pyinstaller --onefile --name=$OUT $TOOL_PY
+          pyinstaller --onefile --name=$env:OUT $env:TOOL_PY
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
