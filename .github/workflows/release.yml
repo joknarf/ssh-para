@@ -75,6 +75,23 @@ jobs:
           fpm $FPM_BASE -t deb --prefix=/usr --description="$DESC" --deb-field "Build-Date:$BUILD_EPOCH" $TOOL_PATH=/bin/$TOOL
           ln -s ${TOOL}_${VERSION}_amd64.deb ${TOOL}_amd64.deb
 
+      - name: Checkout deb
+        uses: actions/checkout@v3
+        with:
+          repository: joknarf/deb
+          token: ${{ secrets.JOKNARF_YUM_TOKEN }}
+          path: deb
+
+      - name: update deb repo
+        run: |
+          cp ${TOOL}_amd64.deb deb/pool/main
+          cd deb
+          git add pool/main/${TOOL}_amd64.deb
+          git commit -m "Update ${TOOL}_amd64.deb to $VERSION" || echo "No changes to commit"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.JOKNARF_YUM_TOKEN }}
+
       - name: Build RPM
         run: |
           fpm $FPM_BASE -t rpm --prefix=/usr --description="$DESC" $TOOL_PATH=/bin/$TOOL
@@ -150,12 +167,28 @@ jobs:
               echo \"__version__ = '$VERSION'\" >$VERSION_PY
               pyinstaller --onefile --add-data=/usr/share/terminfo:terminfo --name=$OUT $TOOL_PY
             "
-
       - name: Build DEB
         run: |
           BUILD_EPOCH=$(date +%s)
           fpm $FPM_BASE -t deb --prefix=/usr --description="$DESC" --deb-field "Build-Date:$BUILD_EPOCH" $TOOL_PATH=/bin/$TOOL
           ln -s ${TOOL}_${VERSION}_arm64.deb ${TOOL}_arm64.deb
+
+      - name: Checkout deb
+        uses: actions/checkout@v3
+        with:
+          repository: joknarf/deb
+          token: ${{ secrets.JOKNARF_YUM_TOKEN }}
+          path: deb
+
+      - name: update deb repo
+        run: |
+          cp ${TOOL}_arm64.deb deb/pool/main
+          cd deb
+          git add pool/main/${TOOL}_arm64.deb
+          git commit -m "Update ${TOOL}_arm64.deb to $VERSION" || echo "No changes to commit"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.JOKNARF_YUM_TOKEN }}
 
       - name: Build RPM
         run: |
