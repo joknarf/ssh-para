@@ -2,9 +2,10 @@
 [![Pypi version](https://img.shields.io/pypi/v/ssh-para.svg)](https://pypi.org/project/ssh-para/)
 [![example](https://github.com/joknarf/ssh-para/actions/workflows/release.yml/badge.svg)](https://github.com/joknarf/ssh-para/actions)
 [![Licence](https://img.shields.io/badge/licence-MIT-blue.svg)](https://shields.io/)
-[![](https://pepy.tech/badge/ssh-para)](https://pepy.tech/project/ssh-para)
+[![Downloads](https://pepy.tech/badge/ssh-para)](https://pepy.tech/project/ssh-para)
 [![Python versions](https://img.shields.io/badge/python-3.6+-blue.svg)](https://shields.io/)
-[![bash](https://img.shields.io/badge/OS-%20Windows%20|%20Linux%20|%20macOS%20...-blue.svg)]()
+[![OS](https://img.shields.io/badge/OS-%20Windows%20|%20Linux%20|%20macOS%20...-blue.svg)]()
+[![Packages](https://img.shields.io/badge/Packages-%20rpm%20|%20deb%20|%20pkg%20|%20apk%20|%20brew%20-darkgreen.svg)](https://github.com/joknarf/ssh-para/releases/latest)
 
 
 
