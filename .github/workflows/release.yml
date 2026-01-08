@@ -1,4 +1,4 @@
-name: Build ssh-para binary (manylinux/macos)
+name: Build and Release Packages
 
 on:
   release:
